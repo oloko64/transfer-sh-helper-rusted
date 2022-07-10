@@ -1,6 +1,7 @@
 use home::home_dir;
 use sqlite::open;
 use std::{fs::create_dir_all, io::Result};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug)]
 pub struct Link {
@@ -48,7 +49,7 @@ pub fn get_all_entries() -> Vec<Link> {
             }],
         );
     }
-    return result;
+    result
 }
 
 pub fn get_single_entry(entry_id: u32) -> Link {
@@ -78,7 +79,30 @@ pub fn get_single_entry(entry_id: u32) -> Link {
             unix_time: row[4].as_integer().unwrap(),
         };
     }
-    return result;
+    result
+}
+
+pub fn insert_entry(name: &str, link: &str, delete_link: &str) {
+    let connection = open_connection();
+    connection
+        .execute(
+            format!(
+                "INSERT INTO transfer_data (name, link, deleteLink, unixTime) VALUES ('{}', '{}', '{}', {})",
+                name,
+                link,
+                delete_link,
+                current_time()
+            ),
+        )
+        .unwrap();
+}
+
+fn current_time() -> u64 {
+    
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
 }
 
 fn open_connection() -> sqlite::Connection {
@@ -86,7 +110,7 @@ fn open_connection() -> sqlite::Connection {
     if let Err(e) = folder {
         println!("{}", e);
     };
-    return open(database_path()).unwrap();
+    open(database_path()).unwrap()
 }
 
 fn create_config_app_folder() -> Result<()> {
@@ -99,9 +123,9 @@ fn config_app_folder() -> String {
         Some(path) => path.display().to_string(),
         None => "".to_string(),
     };
-    return path + "/.config/transfer-sh-helper-database/";
+    path + "/.config/transfer-sh-helper-database/"
 }
 
 fn database_path() -> String {
-    return [&config_app_folder(), "test.db"].join("");
+    [&config_app_folder(), "test.db"].join("")
 }
