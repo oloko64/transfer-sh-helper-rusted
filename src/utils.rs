@@ -13,7 +13,7 @@ pub struct TransferResponse {
     pub delete_link: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Link {
     pub id: i64,
     pub name: String,
@@ -149,7 +149,7 @@ fn unix_week() -> i64 {
 
 fn ask_confirmation(text: &str) -> bool {
     let mut confirmation = String::new();
-    println!("{} (y/N)", text);
+    println!("\n{} (y/N)", text);
     stdin().read_line(&mut confirmation).unwrap();
     confirmation.trim().to_ascii_lowercase().starts_with('y')
 }
@@ -188,4 +188,33 @@ pub fn transfer_file(entry_name: &str, file_path: &str) {
         &transfer_response.transfer_link,
         &transfer_response.delete_link,
     );
+}
+
+pub fn output_data(data: Vec<Link>) {
+    for entry in data {
+        if entry.link.is_empty() && entry.delete_link.is_empty() {
+            continue;
+        }
+        println!(
+            "Id: {} | Name: {} | Link: {} | Delete link: {} | Expired: {}",
+            entry.id,
+            entry.name,
+            entry.link,
+            entry.delete_link,
+            entry.is_expired
+        );
+    }
+}
+
+pub fn delete_entry(entry_id: i64) {
+    ask_confirmation(format!("Are you sure you want to delete the entry {}?", entry_id).as_str());
+    let connection = open_connection();
+    connection
+        .execute(
+            format!(
+                "DELETE FROM transfer_data WHERE id = {}",
+                entry_id
+            ),
+        )
+        .unwrap();
 }
