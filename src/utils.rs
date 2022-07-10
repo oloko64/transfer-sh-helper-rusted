@@ -1,7 +1,12 @@
 use home::home_dir;
 use sqlite::open;
-use std::{fs::create_dir_all, io::Result};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{fs::create_dir_all, io::{Result, stdin}, process::Command, time::{SystemTime, UNIX_EPOCH}};
+
+#[derive(Debug)]
+pub struct TransferResponse {
+    pub transfer_link: String,
+    pub delete_link: String,
+}
 
 #[derive(Debug)]
 pub struct Link {
@@ -128,4 +133,51 @@ fn config_app_folder() -> String {
 
 fn database_path() -> String {
     [&config_app_folder(), "test.db"].join("")
+}
+
+fn unix_week() -> i32 {
+    1209600
+}
+
+fn ask_confirmation(text: &str) -> bool {
+    let mut confirmation = String::new();
+    println!("{} (y/N)", text);
+    stdin().read_line(&mut confirmation).unwrap();
+    confirmation.trim().to_ascii_lowercase().starts_with('y')
+}
+
+pub fn upload_file(file_path: &str) -> TransferResponse {
+    let output = Command::new("curl")
+        .arg("-v")
+        .arg("--upload-file")
+        .arg(file_path)
+        .arg(format!(
+            "https://transfer.sh/{}",
+            file_path.split('/').last().unwrap()
+        ))
+        .output()
+        .expect("Failed to execute command");
+
+    let mut delete_link = String::new();
+    for line in String::from_utf8_lossy(&output.stderr)
+        .split('\n')
+        .collect::<Vec<&str>>()
+    {
+        if line.starts_with("< x-url-delete:") {
+            delete_link = line.split("< x-url-delete:").collect::<Vec<&str>>()[1].to_string();
+        }
+    }
+    TransferResponse {
+        transfer_link: String::from_utf8_lossy(&output.stdout).to_string(),
+        delete_link: delete_link.split_at(delete_link.len() - 1).0.to_string(),
+    }
+}
+
+pub fn transfer_file(entry_name: &str, file_path: &str) {
+    let transfer_response = upload_file(file_path);
+    insert_entry(
+        entry_name,
+        &transfer_response.transfer_link,
+        &transfer_response.delete_link,
+    );
 }
