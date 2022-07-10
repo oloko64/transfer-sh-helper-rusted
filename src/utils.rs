@@ -134,7 +134,7 @@ fn create_config_app_folder() {
 fn config_app_folder() -> String {
     let path = match home_dir() {
         Some(path) => path.display().to_string(),
-        None => "".to_string(),
+        None => panic!("Could not get home directory"),
     };
     path + "/.config/transfer-sh-helper-database/"
 }
