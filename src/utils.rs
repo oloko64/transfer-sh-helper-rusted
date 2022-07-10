@@ -66,7 +66,7 @@ fn is_link_expired(upload_time: i64) -> bool {
     current_time() - upload_time > unix_week()
 }
 
-pub fn get_single_entry(entry_id: u32) -> Link {
+pub fn get_single_entry(entry_id: i64) -> Link {
     let connection = open_connection();
     let mut cursor = connection
         .prepare(format!(
@@ -172,7 +172,7 @@ pub fn upload_file(file_path: &str) -> TransferResponse {
         .collect::<Vec<&str>>()
     {
         if line.starts_with("< x-url-delete:") {
-            delete_link = line.split("< x-url-delete:").collect::<Vec<&str>>()[1].to_string();
+            delete_link = line.split("< x-url-delete:").collect::<Vec<&str>>()[1].trim().to_string();
         }
     }
     TransferResponse {
@@ -206,10 +206,21 @@ pub fn output_data(data: Vec<Link>) {
     }
 }
 
+fn delete_entry_server(delete_link: &str) {
+    Command::new("curl")
+        .arg("-v")
+        .arg("-X")
+        .arg("DELETE")
+        .arg(delete_link)
+        .output()
+        .expect("Failed to delete from transfer sh servers");
+}
+
 pub fn delete_entry(entry_id: i64) {
     if !ask_confirmation(format!("Are you sure you want to delete the entry {}?", entry_id).as_str()) {
         return;
     }
+    delete_entry_server(get_single_entry(entry_id).delete_link.to_string().as_str());
     let connection = open_connection();
     connection
         .execute(
