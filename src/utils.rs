@@ -220,7 +220,7 @@ pub fn delete_entry(entry_id: i64) {
     if !ask_confirmation(format!("Are you sure you want to delete the entry {}?", entry_id).as_str()) {
         return;
     }
-    delete_entry_server(get_single_entry(entry_id).delete_link.to_string().as_str());
+    delete_entry_server(get_single_entry(entry_id).delete_link.as_str());
     let connection = open_connection();
     connection
         .execute(
