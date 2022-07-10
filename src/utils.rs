@@ -1,6 +1,11 @@
 use home::home_dir;
 use sqlite::open;
-use std::{fs::create_dir_all, io::{Result, stdin}, process::Command, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    fs::create_dir_all,
+    io::{stdin, Result},
+    process::Command,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 #[derive(Debug)]
 pub struct TransferResponse {
@@ -15,6 +20,7 @@ pub struct Link {
     pub link: String,
     pub delete_link: String,
     pub unix_time: i64,
+    pub is_expired: bool,
 }
 
 pub fn create_table() {
@@ -44,17 +50,20 @@ pub fn get_all_entries() -> Vec<Link> {
     let mut result: Vec<Link> = vec![];
 
     while let Some(row) = cursor.next().unwrap() {
-        result.append(
-            &mut vec![Link {
-                id: row[0].as_integer().unwrap(),
-                name: String::from(row[1].as_string().unwrap()),
-                link: String::from(row[2].as_string().unwrap()),
-                delete_link: String::from(row[3].as_string().unwrap()),
-                unix_time: row[4].as_integer().unwrap(),
-            }],
-        );
+        result.append(&mut vec![Link {
+            id: row[0].as_integer().unwrap(),
+            name: String::from(row[1].as_string().unwrap()),
+            link: String::from(row[2].as_string().unwrap()),
+            delete_link: String::from(row[3].as_string().unwrap()),
+            unix_time: row[4].as_integer().unwrap(),
+            is_expired: is_link_expired(row[4].as_integer().unwrap()),
+        }]);
     }
     result
+}
+
+fn is_link_expired(upload_time: i64) -> bool {
+    current_time() - upload_time > unix_week()
 }
 
 pub fn get_single_entry(entry_id: u32) -> Link {
@@ -73,6 +82,7 @@ pub fn get_single_entry(entry_id: u32) -> Link {
         link: String::new(),
         delete_link: String::new(),
         unix_time: 0,
+        is_expired: false,
     };
 
     while let Some(row) = cursor.next().unwrap() {
@@ -82,6 +92,7 @@ pub fn get_single_entry(entry_id: u32) -> Link {
             link: String::from(row[2].as_string().unwrap()),
             delete_link: String::from(row[3].as_string().unwrap()),
             unix_time: row[4].as_integer().unwrap(),
+            is_expired: is_link_expired(row[4].as_integer().unwrap()),
         };
     }
     result
@@ -102,12 +113,13 @@ pub fn insert_entry(name: &str, link: &str, delete_link: &str) {
         .unwrap();
 }
 
-fn current_time() -> u64 {
-    
+fn current_time() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs()
+        .try_into()
+        .unwrap()
 }
 
 fn open_connection() -> sqlite::Connection {
@@ -135,7 +147,7 @@ fn database_path() -> String {
     [&config_app_folder(), "test.db"].join("")
 }
 
-fn unix_week() -> i32 {
+fn unix_week() -> i64 {
     1209600
 }
 

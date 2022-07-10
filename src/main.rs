@@ -1,7 +1,5 @@
 mod utils;
 
-
-
 fn main() {
     utils::create_table();
     println!("{:?}", utils::get_single_entry(1));
