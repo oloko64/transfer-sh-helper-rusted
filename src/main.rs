@@ -49,10 +49,8 @@ fn upload_file(file_path: &str) -> TransferResponse {
             delete_link = line.split("< x-url-delete:").collect::<Vec<&str>>()[1].to_string();
         }
     }
-    let file_link = String::from_utf8_lossy(&output.stdout).to_string();
-    let response = TransferResponse {
-        transfer_link: file_link,
+    TransferResponse {
+        transfer_link: String::from_utf8_lossy(&output.stdout).to_string(),
         delete_link: delete_link.split_at(delete_link.len() - 1).0.to_string(),
-    };
-    response
+    }
 }
