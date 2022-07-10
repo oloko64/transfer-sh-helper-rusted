@@ -1,7 +1,7 @@
 use home::home_dir;
 use sqlite::open;
 use std::{
-    fs::create_dir_all,
+    fs::{create_dir_all, remove_file},
     io::stdin,
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
@@ -207,7 +207,9 @@ pub fn output_data(data: Vec<Link>) {
 }
 
 pub fn delete_entry(entry_id: i64) {
-    ask_confirmation(format!("Are you sure you want to delete the entry {}?", entry_id).as_str());
+    if !ask_confirmation(format!("Are you sure you want to delete the entry {}?", entry_id).as_str()) {
+        return;
+    }
     let connection = open_connection();
     connection
         .execute(
@@ -217,4 +219,11 @@ pub fn delete_entry(entry_id: i64) {
             ),
         )
         .unwrap();
+}
+
+pub fn delete_database_file() {
+    if !ask_confirmation("Are you sure you want to delete the database file?") {
+        return;
+    }
+    remove_file(database_path()).unwrap();
 }
