@@ -2,7 +2,7 @@ use home::home_dir;
 use sqlite::open;
 use std::{
     fs::create_dir_all,
-    io::{stdin, Result},
+    io::stdin,
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -123,16 +123,12 @@ fn current_time() -> i64 {
 }
 
 fn open_connection() -> sqlite::Connection {
-    let folder = create_config_app_folder();
-    if let Err(e) = folder {
-        println!("{}", e);
-    };
+    create_config_app_folder();
     open(database_path()).unwrap()
 }
 
-fn create_config_app_folder() -> Result<()> {
-    create_dir_all(config_app_folder())?;
-    Ok(())
+fn create_config_app_folder() {
+    create_dir_all(config_app_folder()).unwrap()
 }
 
 fn config_app_folder() -> String {
