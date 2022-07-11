@@ -178,7 +178,7 @@ pub fn upload_file(file_path: &str) -> TransferResponse {
     }
     TransferResponse {
         transfer_link: String::from_utf8_lossy(&output.stdout).to_string(),
-        delete_link: delete_link.to_string(),
+        delete_link,
     }
 }
 
