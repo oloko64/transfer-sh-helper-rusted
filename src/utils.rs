@@ -6,6 +6,7 @@ use std::{
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
+use chrono::prelude::{DateTime, Utc, NaiveDateTime};
 
 #[derive(Debug)]
 pub struct TransferResponse {
@@ -177,7 +178,7 @@ pub fn upload_file(file_path: &str) -> TransferResponse {
     }
     TransferResponse {
         transfer_link: String::from_utf8_lossy(&output.stdout).to_string(),
-        delete_link: delete_link.split_at(delete_link.len() - 1).0.to_string(),
+        delete_link: delete_link.to_string(),
     }
 }
 
@@ -196,14 +197,20 @@ pub fn output_data(data: Vec<Link>) {
             continue;
         }
         println!(
-            "Id: {} | Name: {} | Link: {} | Delete link: {} | Expired: {}",
+            "Id: {} | Name: {} | Link: {} | Delete link: {} | Expire Date: {} | Expired: {}",
             entry.id,
             entry.name,
             entry.link,
             entry.delete_link,
+            readable_date(entry.unix_time),
             entry.is_expired
         );
     }
+}
+
+fn readable_date(unix_time: i64) -> String {
+    let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(unix_time + unix_week(), 0), Utc);
+    date.format("%Y-%m-%d").to_string()
 }
 
 fn delete_entry_server(delete_link: &str) {
