@@ -128,7 +128,7 @@ fn config_app_folder() -> String {
         Some(path) => path.display().to_string(),
         None => panic!("Could not get home directory"),
     };
-    path + "/.config/transfer-sh-helper-database/"
+    path + "/.config/transfer-sh-helper/"
 }
 
 fn database_path() -> String {
@@ -156,7 +156,7 @@ pub fn upload_file(file_path: &str) -> TransferResponse {
             file_path.split('/').last().unwrap()
         ))
         .output()
-        .expect("Failed to execute command");
+        .expect("Failed to execute upload command");
 
     let mut delete_link = String::new();
     for line in String::from_utf8_lossy(&output.stderr)
@@ -211,7 +211,7 @@ fn delete_entry_server(delete_link: &str) {
         .arg("DELETE")
         .arg(delete_link)
         .output()
-        .expect("Failed to delete from transfer sh servers");
+        .expect("Failed to execute delete command");
 }
 
 pub fn delete_entry(entry_id: i64) {
