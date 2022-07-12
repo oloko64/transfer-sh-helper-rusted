@@ -18,6 +18,7 @@ fn execute_help() {
 }
 
 fn execute_delete_by_id() {
+    println!();
     utils::output_data(utils::get_all_entries());
     println!();
     let mut id = String::new();
