@@ -21,7 +21,7 @@ fn execute_delete_by_id() {
     utils::output_data(utils::get_all_entries());
     println!();
     let mut id = String::new();
-    println!("Enter the id of the entry you want to remove");
+    println!("Enter the id of the entry you want to remove:");
     std::io::stdin().read_line(&mut id).expect("Failed to read line");
     utils::delete_entry(id.trim().parse::<i64>().unwrap())
 }
