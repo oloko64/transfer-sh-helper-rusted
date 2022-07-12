@@ -165,6 +165,7 @@ pub fn upload_file(file_path: &str) -> TransferResponse {
     {
         if line.starts_with("< x-url-delete:") {
             delete_link = line.split("< x-url-delete:").collect::<Vec<&str>>()[1].trim().to_string();
+            break;
         }
     }
     TransferResponse {

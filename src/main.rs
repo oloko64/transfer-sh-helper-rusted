@@ -2,7 +2,7 @@ mod utils;
 use std::{env, io};
 
 fn execute_version() {
-    println!("\nVersion => v0.1.1\n");
+    println!("\nVersion => v0.1.2\n");
 }
 
 fn execute_help() {
