@@ -141,7 +141,7 @@ fn config_app_folder() -> String {
 }
 
 fn database_path() -> String {
-    [&config_app_folder(), "test.db"].join("")
+    [&config_app_folder(), "transfer-sh-helper.db"].join("")
 }
 
 fn unix_week() -> i64 {
