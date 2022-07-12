@@ -19,7 +19,7 @@ fn execute_help() {
 
 fn execute_delete_by_id() {
     utils::output_data(utils::get_all_entries());
-    println!("");
+    println!();
     let mut id = String::new();
     println!("Enter the id of the entry you want to remove");
     std::io::stdin().read_line(&mut id).expect("Failed to read line");
@@ -27,9 +27,9 @@ fn execute_delete_by_id() {
 }
 
 fn execute_list() {
-    println!("");
+    println!();
     utils::output_data(utils::get_all_entries());
-    println!("");
+    println!();
 }
 
 fn execute_drop () {
@@ -43,9 +43,9 @@ fn execute_transfer(path: &str) {
         std::io::stdin().read_line(&mut entry_name).expect("Failed to read line");
         utils::transfer_file(entry_name.split_at(entry_name.len() - 1).0, path);
     }
-    println!("");
+    println!();
     utils::output_data(utils::get_all_entries());
-    println!("");
+    println!();
 }
 
 fn execute_warn_upload() {
