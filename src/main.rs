@@ -40,7 +40,7 @@ fn execute_drop () {
 fn execute_transfer(path: &str) {
     {
         let mut entry_name = String::new();
-        println!("Enter the name of the entry");
+        println!("Enter the name of the entry:");
         io::stdin().read_line(&mut entry_name).expect("Failed to read line");
         println!("\nUploading... please wait\n");
         utils::transfer_file(entry_name.split_at(entry_name.len() - 1).0, path);
