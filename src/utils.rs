@@ -77,7 +77,7 @@ pub fn get_single_entry(entry_id: i64) -> Option<Link> {
         .unwrap()
         .into_cursor();
 
-    while let Some(row) = cursor.next().unwrap() {
+    if let Some(row) = cursor.next().unwrap() {
         return Some(Link {
             id: row[0].as_integer().unwrap(),
             name: String::from(row[1].as_string().unwrap()),
