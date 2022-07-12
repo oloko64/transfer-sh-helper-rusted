@@ -1,8 +1,8 @@
 mod utils;
-use std::env;
+use std::{env, io};
 
 fn execute_version() {
-    println!("\nVersion => v0.1.0\n");
+    println!("\nVersion => v0.1.1\n");
 }
 
 fn execute_help() {
@@ -23,8 +23,8 @@ fn execute_delete_by_id() {
     println!();
     let mut id = String::new();
     println!("Enter the id of the entry you want to remove:");
-    std::io::stdin().read_line(&mut id).expect("Failed to read line");
-    utils::delete_entry(id.trim().parse::<i64>().unwrap())
+    io::stdin().read_line(&mut id).expect("Failed to read line");
+    utils::delete_entry(id.trim().parse::<i64>().expect("Failed to parse id"))
 }
 
 fn execute_list() {
@@ -41,7 +41,7 @@ fn execute_transfer(path: &str) {
     {
         let mut entry_name = String::new();
         println!("Enter the name of the entry");
-        std::io::stdin().read_line(&mut entry_name).expect("Failed to read line");
+        io::stdin().read_line(&mut entry_name).expect("Failed to read line");
         println!("\nUploading... please wait\n");
         utils::transfer_file(entry_name.split_at(entry_name.len() - 1).0, path);
     }

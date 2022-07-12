@@ -67,7 +67,7 @@ fn is_link_expired(upload_time: i64) -> bool {
     current_time() - upload_time > unix_week()
 }
 
-pub fn get_single_entry(entry_id: i64) -> Link {
+pub fn get_single_entry(entry_id: i64) -> Option<Link> {
     let connection = open_connection();
     let mut cursor = connection
         .prepare(format!(
@@ -77,26 +77,17 @@ pub fn get_single_entry(entry_id: i64) -> Link {
         .unwrap()
         .into_cursor();
 
-    let mut result: Link = Link {
-        id: 0,
-        name: String::new(),
-        link: String::new(),
-        delete_link: String::new(),
-        unix_time: 0,
-        is_expired: false,
-    };
-
     while let Some(row) = cursor.next().unwrap() {
-        result = Link {
+        return Some(Link {
             id: row[0].as_integer().unwrap(),
             name: String::from(row[1].as_string().unwrap()),
             link: String::from(row[2].as_string().unwrap()),
             delete_link: String::from(row[3].as_string().unwrap()),
             unix_time: row[4].as_integer().unwrap(),
             is_expired: is_link_expired(row[4].as_integer().unwrap()),
-        };
+        });
     }
-    result
+    None
 }
 
 pub fn insert_entry(name: &str, link: &str, delete_link: &str) {
@@ -224,10 +215,18 @@ fn delete_entry_server(delete_link: &str) {
 }
 
 pub fn delete_entry(entry_id: i64) {
+    let delete_link = match get_single_entry(entry_id) {
+        Some (link) => link.delete_link,
+        None => String::new(),
+    };
+    if delete_link.is_empty() {
+        println!("\nNo delete link found with id: {}\n", entry_id);
+        return;
+    }
     if !ask_confirmation(format!("Are you sure you want to delete the entry {}?", entry_id).as_str()) {
         return;
     }
-    delete_entry_server(get_single_entry(entry_id).delete_link.as_str());
+    delete_entry_server(delete_link.as_str());
     let connection = open_connection();
     connection
         .execute(
