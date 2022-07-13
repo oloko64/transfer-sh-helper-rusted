@@ -8,13 +8,11 @@ use std::{
 };
 use chrono::prelude::{DateTime, Utc, NaiveDateTime};
 
-#[derive(Debug)]
 pub struct TransferResponse {
     pub transfer_link: String,
     pub delete_link: String,
 }
 
-#[derive(Debug, Clone)]
 pub struct Link {
     pub id: i64,
     pub name: String,
