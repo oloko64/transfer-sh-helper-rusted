@@ -46,7 +46,7 @@ pub fn get_config() -> Config {
             Ok(config) => config,
             Err(_) => {
                 write(config_path, serde_json::to_string_pretty(&default_config).unwrap()).unwrap();
-                Config::new()
+                default_config
             },
         },
         Err(_) => {
