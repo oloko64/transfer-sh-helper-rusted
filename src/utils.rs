@@ -22,9 +22,9 @@ pub struct Config {
 
 impl Config {
     fn new() -> Config {
-        return Config {
+        Config {
             database_file: String::from("transfer-sh-helper.db"),
-        };
+        }
     }
 }
 
@@ -40,7 +40,8 @@ pub struct Link {
 pub fn get_config() -> Config {
     let config_path = config_app_folder() + "transfer-helper-config.json";
     let default_config = Config::new();
-    let file_config = match read_to_string(config_path.clone()) {
+    
+    match read_to_string(config_path.clone()) {
         Ok(config) => match serde_json::from_str(&config) {
             Ok(config) => config,
             Err(_) => {
@@ -52,8 +53,7 @@ pub fn get_config() -> Config {
             write(config_path, serde_json::to_string_pretty(&default_config).unwrap()).unwrap();
             default_config
         }
-    };
-    file_config
+    }
 }
 
 
