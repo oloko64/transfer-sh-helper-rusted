@@ -1,16 +1,31 @@
 use home::home_dir;
 use sqlite::open;
 use std::{
-    fs::{create_dir_all, remove_file},
+    fs::{create_dir_all, remove_file, read_to_string, write},
     io::stdin,
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
+use serde::{Serialize, Deserialize};
 use chrono::prelude::{DateTime, Utc, NaiveDateTime};
+
 
 pub struct TransferResponse {
     pub transfer_link: String,
     pub delete_link: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Config {
+    pub database_file: String,
+}
+
+impl Config {
+    fn new() -> Config {
+        return Config {
+            database_file: String::from("transfer-sh-helper.db"),
+        };
+    }
 }
 
 pub struct Link {
@@ -21,6 +36,26 @@ pub struct Link {
     pub unix_time: i64,
     pub is_expired: bool,
 }
+
+pub fn get_config() -> Config {
+    let config_path = config_app_folder() + "transfer-helper-config.json";
+    let default_config = Config::new();
+    let file_config = match read_to_string(config_path.clone()) {
+        Ok(config) => match serde_json::from_str(&config) {
+            Ok(config) => config,
+            Err(_) => {
+                write(config_path, serde_json::to_string_pretty(&default_config).unwrap()).unwrap();
+                Config::new()
+            },
+        },
+        Err(_) => {
+            write(config_path, serde_json::to_string_pretty(&default_config).unwrap()).unwrap();
+            default_config
+        }
+    };
+    file_config
+}
+
 
 pub fn create_table() {
     let connection = open_connection();
@@ -113,11 +148,10 @@ fn current_time() -> i64 {
 }
 
 fn open_connection() -> sqlite::Connection {
-    create_config_app_folder();
     open(database_path()).unwrap()
 }
 
-fn create_config_app_folder() {
+pub fn create_config_app_folder() {
     create_dir_all(config_app_folder()).unwrap()
 }
 
@@ -130,7 +164,7 @@ fn config_app_folder() -> String {
 }
 
 fn database_path() -> String {
-    [&config_app_folder(), "transfer-sh-helper.db"].join("")
+   config_app_folder() + &get_config().database_file
 }
 
 fn unix_week() -> i64 {

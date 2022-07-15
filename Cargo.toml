@@ -10,3 +10,5 @@ sqlite = "0.26.0"
 time = "0.3.11"
 home = "0.5.3"
 chrono = "0.4.19"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

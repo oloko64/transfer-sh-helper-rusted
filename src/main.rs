@@ -59,6 +59,7 @@ fn execute_warn_upload() {
 }
 
 fn main() {
+    utils::create_config_app_folder();
     utils::create_table();
     let args: Vec<String> = env::args().collect();
     match args.len() {
