@@ -175,7 +175,7 @@ fn ask_confirmation(text: &str) -> bool {
     let mut confirmation = String::new();
     println!("\n{} (y/N)", text);
     stdin().read_line(&mut confirmation).unwrap();
-    confirmation.trim().to_ascii_lowercase().starts_with('y')
+    confirmation.trim().to_lowercase().starts_with('y')
 }
 
 pub fn upload_file(file_path: &str) -> TransferResponse {
