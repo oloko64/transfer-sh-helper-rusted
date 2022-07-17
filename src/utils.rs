@@ -2,7 +2,7 @@ use home::home_dir;
 use sqlite::open;
 use std::{
     fs::{create_dir_all, remove_file, read_to_string, write},
-    io::stdin,
+    io::{self, Write},
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -173,8 +173,9 @@ fn unix_week() -> i64 {
 
 fn ask_confirmation(text: &str) -> bool {
     let mut confirmation = String::new();
-    println!("\n{} (y/N)", text);
-    stdin().read_line(&mut confirmation).unwrap();
+    print!("\n{} (y/N): ", text);
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut confirmation).unwrap();
     confirmation.trim().to_lowercase().starts_with('y')
 }
 
