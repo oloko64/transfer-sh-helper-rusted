@@ -257,7 +257,7 @@ pub fn delete_entry(entry_id: i64) {
         println!("\nNo delete link found with id: {}\n", entry_id);
         return;
     }
-    if !ask_confirmation(format!("Are you sure you want to delete the entry {}?", entry_id).as_str()) {
+    if !ask_confirmation(format!("Are you sure you want to delete the entry {}? (It will also delete from the cloud)", entry_id).as_str()) {
         return;
     }
     delete_entry_server(delete_link.as_str());
