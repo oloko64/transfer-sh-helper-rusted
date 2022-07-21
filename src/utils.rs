@@ -218,9 +218,6 @@ pub fn transfer_file(entry_name: &str, file_path: &str) {
 
 pub fn output_data(data: Vec<Link>) {
     for entry in data {
-        if entry.link.is_empty() && entry.delete_link.is_empty() {
-            continue;
-        }
         println!(
             "Id: {} | Name: {} | Link: {} | Delete link: {} | Expire Date: {} | Expired: {}",
             entry.id,
@@ -230,6 +227,7 @@ pub fn output_data(data: Vec<Link>) {
             readable_date(entry.unix_time),
             entry.is_expired
         );
+        println!("-------------------------------------------------------------------------------------");
     }
 }
 
@@ -245,18 +243,17 @@ fn delete_entry_server(delete_link: &str) {
         .arg("DELETE")
         .arg(delete_link)
         .output()
-        .expect("Failed to execute delete command");
+        .expect("Failed to delete entry from transfer.sh servers");
 }
 
 pub fn delete_entry(entry_id: i64) {
     let delete_link = match get_single_entry(entry_id) {
         Some (link) => link.delete_link,
-        None => String::new(),
+        None => {
+            println!("\nEntry with id {} not found\n", entry_id);
+            return;
+        },
     };
-    if delete_link.is_empty() {
-        println!("\nNo delete link found with id: {}\n", entry_id);
-        return;
-    }
     if !ask_confirmation(format!("Are you sure you want to delete the entry {}? (It will also delete from the cloud)", entry_id).as_str()) {
         return;
     }
@@ -269,7 +266,7 @@ pub fn delete_entry(entry_id: i64) {
                 entry_id
             ),
         )
-        .unwrap();
+        .expect("Failed to delete entry from database");
 }
 
 pub fn delete_database_file() {

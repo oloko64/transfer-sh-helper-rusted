@@ -2,7 +2,7 @@ mod utils;
 use std::{env, io::{self, Write}};
 
 fn execute_version() {
-    println!("\nVersion => v0.1.3\n");
+    println!("\nVersion => v0.1.4\n");
 }
 
 fn execute_help() {
@@ -39,14 +39,17 @@ fn execute_drop () {
 }
 
 fn execute_transfer(path: &str) {
+    let default_name = path.split('/').last().unwrap_or("Default Name");
     {
         let mut entry_name = String::new();
-        print!("Enter the name of the entry: ");
+        print!("Enter the name of the entry (Default name: {}): ", default_name);
         io::stdout().flush().unwrap();
         io::stdin().read_line(&mut entry_name).expect("Failed to read line");
-        entry_name = entry_name.trim().to_string();
+        if entry_name.trim().is_empty() {
+            entry_name = default_name.to_string();
+        }
         println!("\nUploading... please wait\n");
-        utils::transfer_file(&entry_name, path);
+        utils::transfer_file(entry_name.trim(), path);
     }
     utils::output_data(utils::get_all_entries());
     println!();
