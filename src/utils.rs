@@ -56,86 +56,8 @@ pub fn get_config() -> Config {
     }
 }
 
-
-pub fn create_table() {
-    let connection = open_connection();
-    connection
-        .execute(
-            "
-        CREATE TABLE IF NOT EXISTS transfer_data (
-        'id'	INTEGER,
-        'name'	TEXT,
-        'link'	TEXT,
-        'deleteLink'	TEXT,
-        'unixTime'	INTEGER,
-        PRIMARY KEY('id' AUTOINCREMENT));
-        ",
-        )
-        .unwrap();
-}
-
-pub fn get_all_entries() -> Vec<Link> {
-    let connection = open_connection();
-    let mut cursor = connection
-        .prepare("SELECT * FROM transfer_data")
-        .unwrap()
-        .into_cursor();
-
-    let mut result: Vec<Link> = vec![];
-
-    while let Some(row) = cursor.next().unwrap() {
-        result.append(&mut vec![Link {
-            id: row[0].as_integer().unwrap(),
-            name: String::from(row[1].as_string().unwrap()),
-            link: String::from(row[2].as_string().unwrap()),
-            delete_link: String::from(row[3].as_string().unwrap()),
-            unix_time: row[4].as_integer().unwrap(),
-            is_expired: is_link_expired(row[4].as_integer().unwrap()),
-        }]);
-    }
-    result
-}
-
 fn is_link_expired(upload_time: i64) -> bool {
     current_time() - upload_time > unix_week()
-}
-
-pub fn get_single_entry(entry_id: i64) -> Option<Link> {
-    let connection = open_connection();
-    let mut cursor = connection
-        .prepare(format!(
-            "SELECT * FROM transfer_data WHERE id = {}",
-            entry_id
-        ))
-        .unwrap()
-        .into_cursor();
-
-    if let Some(row) = cursor.next().unwrap() {
-        return Some(Link {
-            id: row[0].as_integer().unwrap(),
-            name: String::from(row[1].as_string().unwrap()),
-            link: String::from(row[2].as_string().unwrap()),
-            delete_link: String::from(row[3].as_string().unwrap()),
-            unix_time: row[4].as_integer().unwrap(),
-            is_expired: is_link_expired(row[4].as_integer().unwrap()),
-        });
-    }
-    None
-}
-
-pub fn insert_entry(name: &str, link: &str, delete_link: &str) {
-    let connection = open_connection();
-    connection
-        .execute(
-            format!(
-                "INSERT INTO transfer_data (name, link, deleteLink, unixTime) VALUES ('{}', '{}', '{}', {})",
-                name,
-                link,
-                delete_link,
-                current_time()
-            ),
-        )
-        .unwrap();
 }
 
 fn current_time() -> i64 {
@@ -145,10 +67,6 @@ fn current_time() -> i64 {
         .as_secs()
         .try_into()
         .unwrap()
-}
-
-fn open_connection() -> sqlite::Connection {
-    open(database_path()).unwrap()
 }
 
 pub fn create_config_app_folder() {
@@ -243,14 +161,17 @@ fn readable_date(unix_time: i64) -> String {
     date.format("%d-%m-%Y").to_string()
 }
 
-fn delete_entry_server(delete_link: &str) {
-    Command::new("curl")
-        .arg("-v")
-        .arg("-X")
-        .arg("DELETE")
-        .arg(delete_link)
-        .output()
-        .expect("Failed to delete entry from transfer.sh servers");
+pub fn delete_database_file() {
+    if !ask_confirmation("Are you sure you want to delete the database file?") {
+        return;
+    }
+    remove_file(database_path()).unwrap();
+}
+
+// SQL functions
+
+fn open_connection() -> sqlite::Connection {
+    open(database_path()).unwrap()
 }
 
 pub fn delete_entry(entry_id: i64) {
@@ -276,9 +197,89 @@ pub fn delete_entry(entry_id: i64) {
         .expect("Failed to delete entry from database");
 }
 
-pub fn delete_database_file() {
-    if !ask_confirmation("Are you sure you want to delete the database file?") {
-        return;
+fn delete_entry_server(delete_link: &str) {
+    Command::new("curl")
+        .arg("-v")
+        .arg("-X")
+        .arg("DELETE")
+        .arg(delete_link)
+        .output()
+        .expect("Failed to delete entry from transfer.sh servers");
+}
+
+pub fn insert_entry(name: &str, link: &str, delete_link: &str) {
+    let connection = open_connection();
+    connection
+        .execute(
+            format!(
+                "INSERT INTO transfer_data (name, link, deleteLink, unixTime) VALUES ('{}', '{}', '{}', {})",
+                name,
+                link,
+                delete_link,
+                current_time()
+            ),
+        )
+        .unwrap();
+}
+
+pub fn get_single_entry(entry_id: i64) -> Option<Link> {
+    let connection = open_connection();
+    let mut cursor = connection
+        .prepare(format!(
+            "SELECT * FROM transfer_data WHERE id = {}",
+            entry_id
+        ))
+        .unwrap()
+        .into_cursor();
+
+    if let Some(row) = cursor.next().unwrap() {
+        return Some(Link {
+            id: row[0].as_integer().unwrap(),
+            name: String::from(row[1].as_string().unwrap()),
+            link: String::from(row[2].as_string().unwrap()),
+            delete_link: String::from(row[3].as_string().unwrap()),
+            unix_time: row[4].as_integer().unwrap(),
+            is_expired: is_link_expired(row[4].as_integer().unwrap()),
+        });
     }
-    remove_file(database_path()).unwrap();
+    None
+}
+
+pub fn create_table() {
+    let connection = open_connection();
+    connection
+        .execute(
+            "
+        CREATE TABLE IF NOT EXISTS transfer_data (
+        'id'	INTEGER,
+        'name'	TEXT,
+        'link'	TEXT,
+        'deleteLink'	TEXT,
+        'unixTime'	INTEGER,
+        PRIMARY KEY('id' AUTOINCREMENT));
+        ",
+        )
+        .unwrap();
+}
+
+pub fn get_all_entries() -> Vec<Link> {
+    let connection = open_connection();
+    let mut cursor = connection
+        .prepare("SELECT * FROM transfer_data")
+        .unwrap()
+        .into_cursor();
+
+    let mut result: Vec<Link> = vec![];
+
+    while let Some(row) = cursor.next().unwrap() {
+        result.append(&mut vec![Link {
+            id: row[0].as_integer().unwrap(),
+            name: String::from(row[1].as_string().unwrap()),
+            link: String::from(row[2].as_string().unwrap()),
+            delete_link: String::from(row[3].as_string().unwrap()),
+            unix_time: row[4].as_integer().unwrap(),
+            is_expired: is_link_expired(row[4].as_integer().unwrap()),
+        }]);
+    }
+    result
 }
