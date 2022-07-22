@@ -9,7 +9,7 @@ The idea of the script is to store your transfer.sh links and simplify its usage
 - Automatically calculates expired links.
 - Option to easily delete the file from their servers.
 
-https://user-images.githubusercontent.com/49915167/178388134-7a072cf2-9a26-41e9-ba7c-9f8c0f5dd26f.mp4
+https://user-images.githubusercontent.com/49915167/180336384-8cdc56a8-ef99-4bf5-b914-192d82c633c4.mp4
 
 ## THIS SCRIPT IS NOT OFFICIAL.
 
