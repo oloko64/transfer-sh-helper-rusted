@@ -1,5 +1,5 @@
 mod utils;
-use std::{env, io::{self, Write}};
+use std::{env, io::{self, Write}, process::exit};
 #[macro_use] extern crate prettytable;
 
 fn execute_version() {
@@ -13,7 +13,7 @@ fn execute_help() {
     -v, --version              Prints version
     -u, --upload [FILE_PATH]   Upload a new link
     -l, --list                 Lists all links
-    -L, --listdel              Lists all links with delete links
+    -L, --listdel              Lists all delete links
     -d, --delete               Deletes a specific link
     -D, --drop                 Deletes database file
     ");
@@ -21,7 +21,10 @@ fn execute_help() {
 
 fn execute_delete_by_id() {
     println!();
-    utils::output_data(utils::get_all_entries(), false);
+    if utils::output_data(utils::get_all_entries(), false) <= 0 {
+        println!("No data to delete");
+        exit(0);
+    }
     println!();
     let mut id = String::new();
     print!("Enter the id of the entry you want to remove: ");

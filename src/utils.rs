@@ -3,7 +3,7 @@ use sqlite::open;
 use std::{
     fs::{create_dir_all, remove_file, read_to_string, write},
     io::{self, Write},
-    process::Command,
+    process::{Command, exit},
     time::{SystemTime, UNIX_EPOCH},
 };
 use serde::{Serialize, Deserialize};
@@ -216,30 +216,31 @@ pub fn transfer_file(entry_name: &str, file_path: &str) {
     );
 }
 
-pub fn output_data(data: Vec<Link>, del_links: bool) {
+pub fn output_data(data: Vec<Link>, del_links: bool) -> i32{
     if data.is_empty() {
-        println!("No entries found");
-        return;
+        println!("No entries found\n");
+        exit(0);
     }
     let mut table = Table::new();
     if del_links {
         table.add_row(row!["ID", "Name", "Delete Link", "Expire Date", "Expired"]);
-        for entry in data {
+        for entry in &data {
             table.add_row(row![entry.id, entry.name, entry.delete_link, readable_date(entry.unix_time), entry.is_expired]);
         }
     } else {
         table.add_row(row!["ID", "Name", "Link", "Expire Date", "Expired"]);
-        for entry in data {
+        for entry in &data {
             table.add_row(row![entry.id, entry.name, entry.link, readable_date(entry.unix_time), entry.is_expired]);
         }
     }
     
     table.printstd();
+    data.len() as i32
 }
 
 fn readable_date(unix_time: i64) -> String {
     let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(unix_time + unix_week(), 0), Utc);
-    date.format("%Y-%m-%d").to_string()
+    date.format("%d-%m-%Y").to_string()
 }
 
 fn delete_entry_server(delete_link: &str) {
