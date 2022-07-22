@@ -8,7 +8,7 @@ use std::{
 };
 use serde::{Serialize, Deserialize};
 use chrono::prelude::{DateTime, Utc, NaiveDateTime};
-
+use prettytable::Table;
 
 pub struct TransferResponse {
     pub transfer_link: String,
@@ -216,19 +216,25 @@ pub fn transfer_file(entry_name: &str, file_path: &str) {
     );
 }
 
-pub fn output_data(data: Vec<Link>) {
-    for entry in data {
-        println!(
-            "Id: {} | Name: {} | Link: {} | Delete link: {} | Expire Date: {} | Expired: {}",
-            entry.id,
-            entry.name,
-            entry.link,
-            entry.delete_link,
-            readable_date(entry.unix_time),
-            entry.is_expired
-        );
-        println!("-------------------------------------------------------------------------------------");
+pub fn output_data(data: Vec<Link>, del_links: bool) {
+    if data.is_empty() {
+        println!("No entries found");
+        return;
     }
+    let mut table = Table::new();
+    if del_links {
+        table.add_row(row!["ID", "Name", "Delete Link", "Expire Date", "Expired"]);
+        for entry in data {
+            table.add_row(row![entry.id, entry.name, entry.delete_link, readable_date(entry.unix_time), entry.is_expired]);
+        }
+    } else {
+        table.add_row(row!["ID", "Name", "Link", "Expire Date", "Expired"]);
+        for entry in data {
+            table.add_row(row![entry.id, entry.name, entry.link, readable_date(entry.unix_time), entry.is_expired]);
+        }
+    }
+    
+    table.printstd();
 }
 
 fn readable_date(unix_time: i64) -> String {

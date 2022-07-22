@@ -1,5 +1,6 @@
 mod utils;
 use std::{env, io::{self, Write}};
+#[macro_use] extern crate prettytable;
 
 fn execute_version() {
     println!("\nVersion => v0.1.4\n");
@@ -12,14 +13,15 @@ fn execute_help() {
     -v, --version              Prints version
     -u, --upload [FILE_PATH]   Upload a new link
     -l, --list                 Lists all links
+    -L, --listdel              Lists all links with delete links
     -d, --delete               Deletes a specific link
-    -DD, --drop                Deletes database file
+    -D, --drop                 Deletes database file
     ");
 }
 
 fn execute_delete_by_id() {
     println!();
-    utils::output_data(utils::get_all_entries());
+    utils::output_data(utils::get_all_entries(), false);
     println!();
     let mut id = String::new();
     print!("Enter the id of the entry you want to remove: ");
@@ -28,9 +30,9 @@ fn execute_delete_by_id() {
     utils::delete_entry(id.trim().parse::<i64>().expect("Failed to parse id"))
 }
 
-fn execute_list() {
+fn execute_list(del_links: bool) {
     println!();
-    utils::output_data(utils::get_all_entries());
+    utils::output_data(utils::get_all_entries(), del_links);
     println!();
 }
 
@@ -51,7 +53,7 @@ fn execute_transfer(path: &str) {
         println!("\nUploading... please wait\n");
         utils::transfer_file(entry_name.trim(), path);
     }
-    utils::output_data(utils::get_all_entries());
+    utils::output_data(utils::get_all_entries(), false);
     println!();
 }
 
@@ -71,9 +73,10 @@ fn main() {
     match args.len() {
         2 => match args[1].as_str() {
             "-v"  | "--version" => execute_version(),
-            "-l"  | "--list" => execute_list(),
+            "-l"  | "--list" => execute_list(false),
+            "-L"  | "--listdel" => execute_list(true),
             "-d"  | "--delete" => execute_delete_by_id(),
-            "-DD" | "--drop" => execute_drop(),
+            "-D"  | "--drop" => execute_drop(),
             "-u"  | "--upload" => execute_warn_upload(),
             _ => execute_help(),
         },
