@@ -47,7 +47,7 @@ pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
     }
     let size = fs::metadata(path)?.len();
     let float_size = size as f64;
-    let kb = 1024_f64;
+    let kb = 1024 as f64;
     let mb = (1024 * 1024) as f64;
     let gb = (1024 * 1024 * 1024) as f64;
 
