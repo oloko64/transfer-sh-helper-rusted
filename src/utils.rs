@@ -15,9 +15,10 @@ pub struct TransferResponse {
     pub delete_link: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct Config {
-    pub database_file: String,
+    #[serde(rename = "database_file")]
+    database_file: String,
 }
 
 impl Config {

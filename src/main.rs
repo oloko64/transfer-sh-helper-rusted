@@ -3,7 +3,7 @@ use std::{env, io::{self, Write}, process::exit};
 #[macro_use] extern crate prettytable;
 
 fn execute_version() {
-    println!("\nVersion => v0.1.5\n");
+    println!("\nVersion => v0.1.6\n");
 }
 
 fn execute_help() {
