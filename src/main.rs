@@ -1,5 +1,5 @@
 mod utils;
-use std::{env, io::{self, Write}, process::exit};
+use std::{env, io::{self, Write}, process::exit, path::Path};
 #[macro_use] extern crate prettytable;
 
 fn execute_version() {
@@ -44,10 +44,14 @@ fn execute_drop () {
 }
 
 fn execute_transfer(path: &str) {
+    if !Path::new(&path).exists() {
+        println!("\nFile not found. Exiting...\n{}\n", &path);
+        exit(1);
+    }
     let default_name = path.split('/').last().unwrap_or("Default Name");
     {
         let mut entry_name = String::new();
-        print!("Enter the name of the entry (Default name: {}): ", default_name);
+        print!("\nEnter the name of the entry (Default name: {}): ", default_name);
         io::stdout().flush().unwrap();
         io::stdin().read_line(&mut entry_name).expect("Failed to read line");
         if entry_name.trim().is_empty() {
