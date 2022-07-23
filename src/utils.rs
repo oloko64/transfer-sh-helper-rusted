@@ -38,11 +38,17 @@ pub struct Link {
 }
 
 pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
+    if !fs::metadata(path)?.is_file() {
+        return Err(Box::new(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("{} is not a file", path),
+        )));
+    }
     let size = fs::metadata(path)?.len();
     let float_size = size as f64;
     let kb = 1024_f64;
-    let mb = (1024^2) as f64;
-    let gb = (1024^3) as f64;
+    let mb = (1024 * 1024) as f64;
+    let gb = (1024 * 1024 * 1024) as f64;
 
     match size {
         0 => Err(Box::new(io::Error::new(io::ErrorKind::Other, "File is empty"))),
@@ -53,6 +59,7 @@ pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
             Ok(format!("{:.2}KB", float_size / kb))
         }
         1048576..=1073741823 => {
+            println!("{}", float_size);
             Ok(format!("{:.2}MB", float_size / mb))
         }
         1073741824..=1610612735 => {
