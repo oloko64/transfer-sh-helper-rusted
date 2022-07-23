@@ -1,10 +1,10 @@
 use home::home_dir;
 use sqlite::open;
 use std::{
-    fs::{create_dir_all, remove_file, read_to_string, write},
+    fs::{create_dir_all, remove_file, read_to_string, write, self},
     io::{self, Write},
     process::{Command, exit},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH}, error::Error,
 };
 use serde::{Serialize, Deserialize};
 use chrono::prelude::{DateTime, Utc, NaiveDateTime};
@@ -35,6 +35,33 @@ pub struct Link {
     pub delete_link: String,
     pub unix_time: i64,
     pub is_expired: bool,
+}
+
+pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
+    let size = fs::metadata(path)?.len();
+    let float_size = size as f64;
+    let kb = 1024_f64;
+    let mb = (1024^2) as f64;
+    let gb = (1024^3) as f64;
+
+    match size {
+        0 => Err(Box::new(io::Error::new(io::ErrorKind::Other, "File is empty"))),
+        1..=1023 => {
+            Ok(format!("{}B", float_size))
+        }
+        1024..=1048575 => {
+            Ok(format!("{:.2}KB", float_size / kb))
+        }
+        1048576..=1073741823 => {
+            Ok(format!("{:.2}MB", float_size / mb))
+        }
+        1073741824..=1610612735 => {
+            Ok(format!("{:.2}GB", float_size / gb))
+        }
+        _ => {
+            Err(Box::new(io::Error::new(io::ErrorKind::Other, "File over the 1.5GB limit")))
+        }
+    }
 }
 
 pub fn get_config() -> Config {

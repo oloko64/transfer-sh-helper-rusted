@@ -1,9 +1,9 @@
 mod utils;
-use std::{env, io::{self, Write}, process::exit, path::Path};
+use std::{env, io::{self, Write}, process::exit};
 #[macro_use] extern crate prettytable;
 
 fn execute_version() {
-    println!("\nVersion => v0.1.4\n");
+    println!("\nVersion => v0.1.5\n");
 }
 
 fn execute_help() {
@@ -16,6 +16,8 @@ fn execute_help() {
     -L, --listdel              Lists all delete links
     -d, --delete               Deletes a specific link
     -D, --drop                 Deletes database file
+
+    Obs: You can't send empty files or files above 1.5GB.
     ");
 }
 
@@ -44,10 +46,15 @@ fn execute_drop () {
 }
 
 fn execute_transfer(path: &str) {
-    if !Path::new(&path).exists() {
-        println!("\nFile not found. Exiting...\n{}\n", &path);
-        exit(1);
-    }
+    match utils::get_file_size(path) {
+        Ok(size) => {
+            println!("File size: {}", size);
+        },
+        Err(err) => {
+            println!("{}", err);
+            exit(1);
+        }
+    };
     let default_name = path.split('/').last().unwrap_or("Default Name");
     {
         let mut entry_name = String::new();
