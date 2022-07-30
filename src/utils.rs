@@ -59,10 +59,7 @@ pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
         ))),
         1..=1023 => Ok(format!("{}B", float_size)),
         1024..=1048575 => Ok(format!("{:.2}KB", float_size / kb)),
-        1048576..=1073741823 => {
-            println!("{}", float_size);
-            Ok(format!("{:.2}MB", float_size / mb))
-        }
+        1048576..=1073741823 => Ok(format!("{:.2}MB", float_size / mb)),
         1073741824..=1610612735 => Ok(format!("{:.2}GB", float_size / gb)),
         _ => Err(Box::new(io::Error::new(
             io::ErrorKind::Other,
