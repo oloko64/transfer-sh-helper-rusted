@@ -1,7 +1,6 @@
 mod arg_parser;
 mod utils;
 use std::{
-    env,
     io::{self, Write},
     process::exit,
 };
@@ -63,37 +62,11 @@ fn execute_transfer(path: &str) {
     println!();
 }
 
-fn execute_warn_upload() {
-    println!(
-        "
-    You need to inform a path for the file to upload.
-    
-    Usage:
-    -u, --upload [FILE_PATH]   Upload a new link
-    "
-    );
-}
-
-fn execute_help() {
-    println!(
-        "
-    Usage:
-    -h, --help                 Prints help
-    -v, --version              Prints version
-    -u, --upload [FILE_PATH]   Upload a new link
-    -l, --list                 Lists all links
-    -L, --listdel              Lists all delete links
-    -d, --delete               Deletes a specific link
-    -D, --drop                 Deletes database file
-
-    Obs: You can't send empty files or files above 1.5GB.
-    "
-    );
-}
-
-fn main() {
+fn run_app() {
+    utils::create_config_app_folder();
+    utils::create_table();
     let args = arg_parser::prepare_args();
-    if let Some(path) = args.upload {
+    if let Some(path) = args.upload_file {
         execute_transfer(&path);
     } else if args.list {
         execute_list(false);
@@ -106,23 +79,8 @@ fn main() {
     } else {
         execute_list(false);
     }
-    // utils::create_config_app_folder();
-    // utils::create_table();
-    // let args: Vec<String> = env::args().collect();
-    // match args.len() {
-    //     2 => match args[1].as_str() {
-    //         "-v"  | "--version" => execute_version(),
-    //         "-l"  | "--list" => execute_list(false),
-    //         "-L"  | "--listdel" => execute_list(true),
-    //         "-d"  | "--delete" => execute_delete_by_id(),
-    //         "-D"  | "--drop" => execute_drop(),
-    //         "-u"  | "--upload" => execute_warn_upload(),
-    //         _ => execute_help(),
-    //     },
-    //     3 => match args[1].as_str() {
-    //         "-u" | "--upload" => execute_transfer(&args[2]),
-    //         _ => execute_help(),
-    //     },
-    //     _ => execute_help()
-    // }
+}
+
+fn main() {
+    run_app();
 }

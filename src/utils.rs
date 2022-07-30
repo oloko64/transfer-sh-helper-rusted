@@ -47,7 +47,7 @@ pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
     }
     let size = fs::metadata(path)?.len();
     let float_size = size as f64;
-    let kb = 1024 as f64;
+    let kb = 1024_f64;
     let mb = (1024 * 1024) as f64;
     let gb = (1024 * 1024 * 1024) as f64;
 
@@ -129,6 +129,7 @@ fn ask_confirmation(text: &str) -> bool {
     print!("\n{} (y/N): ", text);
     io::stdout().flush().unwrap();
     io::stdin().read_line(&mut confirmation).unwrap();
+    println!();
     confirmation.trim().to_lowercase().starts_with('y')
 }
 
@@ -171,7 +172,8 @@ pub fn transfer_file(entry_name: &str, file_path: &str) {
 
 pub fn output_data(data: Vec<Link>, del_links: bool) -> i32{
     if data.is_empty() {
-        println!("No entries found\n");
+        println!("No entries found.");
+        println!("Run \"transferhelper -h\" to see all available commands.\n");
         exit(0);
     }
     let mut table = Table::new();
@@ -201,6 +203,7 @@ pub fn delete_database_file() {
         return;
     }
     remove_file(database_path()).unwrap();
+    println!("Database file deleted\n");
 }
 
 // SQL functions
@@ -230,6 +233,7 @@ pub fn delete_entry(entry_id: i64) {
             ),
         )
         .expect("Failed to delete entry from database");
+    println!("Entry with id {} deleted\n", entry_id);
 }
 
 fn delete_entry_server(delete_link: &str) {

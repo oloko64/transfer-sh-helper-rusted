@@ -1,6 +1,6 @@
 use clap::Parser;
 
-/// A simple way to use Transfer.sh.
+/// A simple way to use Transfer.sh from the CLI.
 #[derive(Parser, Debug)]
 #[clap(version)]
 pub struct Args {
@@ -12,7 +12,7 @@ pub struct Args {
     #[clap(long, action)]
     pub list_del: bool,
 
-    /// Deletes a entry from the database as well as from Transfer.sh servers
+    /// Deletes a entry locally as well as from Transfer.sh servers
     #[clap(short, long, action)]
     pub delete: bool,
 
@@ -22,7 +22,7 @@ pub struct Args {
 
     /// Upload a file to Transfer.sh servers
     #[clap(short, long, value_parser)]
-    pub upload: Option<String>,
+    pub upload_file: Option<String>,
 }
 
 pub fn prepare_args() -> Args {
