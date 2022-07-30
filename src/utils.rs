@@ -1,14 +1,15 @@
+use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use home::home_dir;
+use prettytable::Table;
+use serde::{Deserialize, Serialize};
 use sqlite::open;
 use std::{
-    fs::{create_dir_all, remove_file, read_to_string, write, self},
+    error::Error,
+    fs::{self, create_dir_all, read_to_string, remove_file, write},
     io::{self, Write},
-    process::{Command, exit},
-    time::{SystemTime, UNIX_EPOCH}, error::Error,
+    process::{exit, Command},
+    time::{SystemTime, UNIX_EPOCH},
 };
-use serde::{Serialize, Deserialize};
-use chrono::prelude::{DateTime, Utc, NaiveDateTime};
-use prettytable::Table;
 
 pub struct TransferResponse {
     pub transfer_link: String,
@@ -52,40 +53,46 @@ pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
     let gb = (1024 * 1024 * 1024) as f64;
 
     match size {
-        0 => Err(Box::new(io::Error::new(io::ErrorKind::Other, "File is empty"))),
-        1..=1023 => {
-            Ok(format!("{}B", float_size))
-        }
-        1024..=1048575 => {
-            Ok(format!("{:.2}KB", float_size / kb))
-        }
+        0 => Err(Box::new(io::Error::new(
+            io::ErrorKind::Other,
+            "File is empty",
+        ))),
+        1..=1023 => Ok(format!("{}B", float_size)),
+        1024..=1048575 => Ok(format!("{:.2}KB", float_size / kb)),
         1048576..=1073741823 => {
             println!("{}", float_size);
             Ok(format!("{:.2}MB", float_size / mb))
         }
-        1073741824..=1610612735 => {
-            Ok(format!("{:.2}GB", float_size / gb))
-        }
-        _ => {
-            Err(Box::new(io::Error::new(io::ErrorKind::Other, "File over the 1.5GB limit")))
-        }
+        1073741824..=1610612735 => Ok(format!("{:.2}GB", float_size / gb)),
+        _ => Err(Box::new(io::Error::new(
+            io::ErrorKind::Other,
+            "File over the 1.5GB limit",
+        ))),
     }
 }
 
 pub fn get_config() -> Config {
     let config_path = config_app_folder() + "transfer-helper-config.json";
     let default_config = Config::new();
-    
+
     match read_to_string(config_path.clone()) {
         Ok(config) => match serde_json::from_str(&config) {
             Ok(config) => config,
             Err(_) => {
-                write(config_path, serde_json::to_string_pretty(&default_config).unwrap()).unwrap();
+                write(
+                    config_path,
+                    serde_json::to_string_pretty(&default_config).unwrap(),
+                )
+                .unwrap();
                 default_config
-            },
+            }
         },
         Err(_) => {
-            write(config_path, serde_json::to_string_pretty(&default_config).unwrap()).unwrap();
+            write(
+                config_path,
+                serde_json::to_string_pretty(&default_config).unwrap(),
+            )
+            .unwrap();
             default_config
         }
     }
@@ -117,7 +124,7 @@ fn config_app_folder() -> String {
 }
 
 fn database_path() -> String {
-   config_app_folder() + &get_config().database_file
+    config_app_folder() + &get_config().database_file
 }
 
 fn unix_week() -> i64 {
@@ -151,7 +158,9 @@ pub fn upload_file(file_path: &str) -> TransferResponse {
         .collect::<Vec<&str>>()
     {
         if line.starts_with("< x-url-delete:") {
-            delete_link = line.split("< x-url-delete:").collect::<Vec<&str>>()[1].trim().to_string();
+            delete_link = line.split("< x-url-delete:").collect::<Vec<&str>>()[1]
+                .trim()
+                .to_string();
             break;
         }
     }
@@ -170,7 +179,7 @@ pub fn transfer_file(entry_name: &str, file_path: &str) {
     );
 }
 
-pub fn output_data(data: Vec<Link>, del_links: bool) -> i32{
+pub fn output_data(data: Vec<Link>, del_links: bool) -> i32 {
     if data.is_empty() {
         println!("No entries found.");
         println!("Run \"transferhelper -h\" to see all available commands.\n");
@@ -180,21 +189,36 @@ pub fn output_data(data: Vec<Link>, del_links: bool) -> i32{
     if del_links {
         table.add_row(row!["ID", "Name", "Delete Link", "Expire Date", "Expired"]);
         for entry in &data {
-            table.add_row(row![entry.id, entry.name, entry.delete_link, readable_date(entry.unix_time), entry.is_expired]);
+            table.add_row(row![
+                entry.id,
+                entry.name,
+                entry.delete_link,
+                readable_date(entry.unix_time),
+                entry.is_expired
+            ]);
         }
     } else {
         table.add_row(row!["ID", "Name", "Link", "Expire Date", "Expired"]);
         for entry in &data {
-            table.add_row(row![entry.id, entry.name, entry.link, readable_date(entry.unix_time), entry.is_expired]);
+            table.add_row(row![
+                entry.id,
+                entry.name,
+                entry.link,
+                readable_date(entry.unix_time),
+                entry.is_expired
+            ]);
         }
     }
-    
+
     table.printstd();
     data.len() as i32
 }
 
 fn readable_date(unix_time: i64) -> String {
-    let date = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(unix_time + unix_week(), 0), Utc);
+    let date = DateTime::<Utc>::from_utc(
+        NaiveDateTime::from_timestamp(unix_time + unix_week(), 0),
+        Utc,
+    );
     date.format("%d-%m-%Y").to_string()
 }
 
@@ -214,24 +238,25 @@ fn open_connection() -> sqlite::Connection {
 
 pub fn delete_entry(entry_id: i64) {
     let delete_link = match get_single_entry(entry_id) {
-        Some (link) => link.delete_link,
+        Some(link) => link.delete_link,
         None => {
             println!("\nEntry with id {} not found\n", entry_id);
             return;
-        },
+        }
     };
-    if !ask_confirmation(format!("Are you sure you want to delete the entry {}? (It will also delete from the cloud)", entry_id).as_str()) {
+    if !ask_confirmation(
+        format!(
+            "Are you sure you want to delete the entry {}? (It will also delete from the cloud)",
+            entry_id
+        )
+        .as_str(),
+    ) {
         return;
     }
     delete_entry_server(delete_link.as_str());
     let connection = open_connection();
     connection
-        .execute(
-            format!(
-                "DELETE FROM transfer_data WHERE id = {}",
-                entry_id
-            ),
-        )
+        .execute(format!("DELETE FROM transfer_data WHERE id = {}", entry_id))
         .expect("Failed to delete entry from database");
     println!("Entry with id {} deleted\n", entry_id);
 }
