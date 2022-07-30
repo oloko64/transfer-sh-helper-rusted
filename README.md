@@ -51,6 +51,12 @@ transferhelper -u <file>
 transferhelper -l
 ```
 
+### View your stored delete links:
+
+```bash
+transferhelper --list-del
+```
+
 ### Delete a link:
 
 ```bash
@@ -62,7 +68,7 @@ After running this command it will ask you for the link you want to delete and i
 ### Delete the database:
 
 ```bash
-transferhelper -DD
+transferhelper --drop
 ```
 
 After running this command it will ask for confirmation.
