@@ -6,21 +6,6 @@ fn execute_version() {
     println!("\nVersion => v0.1.6\n");
 }
 
-fn execute_help() {
-    println!("
-    Usage:
-    -h, --help                 Prints help
-    -v, --version              Prints version
-    -u, --upload [FILE_PATH]   Upload a new link
-    -l, --list                 Lists all links
-    -L, --listdel              Lists all delete links
-    -d, --delete               Deletes a specific link
-    -D, --drop                 Deletes database file
-
-    Obs: You can't send empty files or files above 1.5GB.
-    ");
-}
-
 fn execute_delete_by_id() {
     println!();
     if utils::output_data(utils::get_all_entries(), false) <= 0 {
@@ -77,6 +62,21 @@ fn execute_warn_upload() {
     
     Usage:
     -u, --upload [FILE_PATH]   Upload a new link
+    ");
+}
+
+fn execute_help() {
+    println!("
+    Usage:
+    -h, --help                 Prints help
+    -v, --version              Prints version
+    -u, --upload [FILE_PATH]   Upload a new link
+    -l, --list                 Lists all links
+    -L, --listdel              Lists all delete links
+    -d, --delete               Deletes a specific link
+    -D, --drop                 Deletes database file
+
+    Obs: You can't send empty files or files above 1.5GB.
     ");
 }
 
