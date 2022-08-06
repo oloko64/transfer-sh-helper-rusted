@@ -179,7 +179,7 @@ pub fn transfer_file(entry_name: &str, file_path: &str) {
     });
 }
 
-pub fn output_data(data: Vec<Link>, del_links: bool) -> i32 {
+pub fn output_data(data: &Vec<Link>, del_links: bool) -> i32 {
     if data.is_empty() {
         println!("No entries found.");
         println!("Run \"transferhelper -h\" to see all available commands.\n");
@@ -188,7 +188,7 @@ pub fn output_data(data: Vec<Link>, del_links: bool) -> i32 {
     let mut table = Table::new();
     if del_links {
         table.add_row(row!["ID", "Name", "Delete Link", "Expire Date", "Expired"]);
-        for entry in &data {
+        for entry in data {
             table.add_row(row![
                 entry.id,
                 entry.name,
@@ -199,7 +199,7 @@ pub fn output_data(data: Vec<Link>, del_links: bool) -> i32 {
         }
     } else {
         table.add_row(row!["ID", "Name", "Link", "Expire Date", "Expired"]);
-        for entry in &data {
+        for entry in data {
             table.add_row(row![
                 entry.id,
                 entry.name,

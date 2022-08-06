@@ -10,7 +10,7 @@ extern crate prettytable;
 fn execute_delete_by_id() {
     println!();
     if utils::output_data(
-        utils::get_all_entries().expect("Failed while trying to read all entries."),
+        &utils::get_all_entries().expect("Failed while trying to read all entries."),
         false,
     ) <= 0
     {
@@ -28,7 +28,7 @@ fn execute_delete_by_id() {
 fn execute_list(del_links: bool) {
     println!();
     utils::output_data(
-        utils::get_all_entries().expect("Failed while trying to read all entries."),
+        &utils::get_all_entries().expect("Failed while trying to read all entries."),
         del_links,
     );
     println!();
@@ -66,7 +66,7 @@ fn execute_transfer(path: &str) {
         utils::transfer_file(entry_name.trim(), path);
     }
     utils::output_data(
-        utils::get_all_entries().expect("Failed while trying to read all entries."),
+        &utils::get_all_entries().expect("Failed while trying to read all entries."),
         false,
     );
     println!();
