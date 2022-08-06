@@ -1,5 +1,5 @@
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
-use home::home_dir;
+use dirs::config_dir;
 use prettytable::Table;
 use serde::{Deserialize, Serialize};
 use sqlite::open;
@@ -113,11 +113,11 @@ pub fn create_config_app_folder() {
 }
 
 fn config_app_folder() -> String {
-    let path = match home_dir() {
+    let config_path = match config_dir() {
         Some(path) => path.display().to_string(),
-        None => panic!("Could not get home directory"),
+        None => panic!("Could not get config directory"),
     };
-    path + "/.config/transfer-sh-helper/"
+    config_path + "/transfer-sh-helper/"
 }
 
 fn database_path() -> String {
