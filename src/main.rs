@@ -9,7 +9,11 @@ extern crate prettytable;
 
 fn execute_delete_by_id() {
     println!();
-    if utils::output_data(utils::get_all_entries().expect("Failed while trying to read all entries."), false) <= 0 {
+    if utils::output_data(
+        utils::get_all_entries().expect("Failed while trying to read all entries."),
+        false,
+    ) <= 0
+    {
         println!("No data to delete");
         exit(0);
     }
@@ -23,12 +27,15 @@ fn execute_delete_by_id() {
 
 fn execute_list(del_links: bool) {
     println!();
-    utils::output_data(utils::get_all_entries().expect("Failed while trying to read all entries."), del_links);
+    utils::output_data(
+        utils::get_all_entries().expect("Failed while trying to read all entries."),
+        del_links,
+    );
     println!();
 }
 
 fn execute_drop() {
-    utils::delete_database_file();
+    utils::delete_database_file().expect("Failed to delete database file.");
 }
 
 fn execute_transfer(path: &str) {
@@ -58,7 +65,10 @@ fn execute_transfer(path: &str) {
         println!("\nUploading... please wait\n");
         utils::transfer_file(entry_name.trim(), path);
     }
-    utils::output_data(utils::get_all_entries().expect("Failed while trying to read all entries."), false);
+    utils::output_data(
+        utils::get_all_entries().expect("Failed while trying to read all entries."),
+        false,
+    );
     println!();
 }
 

@@ -68,31 +68,23 @@ pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
     }
 }
 
-pub fn get_config() -> Config {
+pub fn get_config() -> Result<Config, Box<dyn Error>> {
     let config_path = config_app_folder() + "transfer-helper-config.json";
     let default_config = Config::new();
 
-    match read_to_string(config_path.clone()) {
+    Ok(match read_to_string(&config_path) {
         Ok(config) => match serde_json::from_str(&config) {
             Ok(config) => config,
             Err(_) => {
-                write(
-                    config_path,
-                    serde_json::to_string_pretty(&default_config).unwrap(),
-                )
-                .unwrap();
+                write(config_path, serde_json::to_string_pretty(&default_config)?)?;
                 default_config
             }
         },
         Err(_) => {
-            write(
-                config_path,
-                serde_json::to_string_pretty(&default_config).unwrap(),
-            )
-            .unwrap();
+            write(config_path, serde_json::to_string_pretty(&default_config)?)?;
             default_config
         }
-    }
+    })
 }
 
 fn is_link_expired(upload_time: i64) -> bool {
@@ -120,7 +112,10 @@ fn config_app_folder() -> String {
 }
 
 fn database_path() -> String {
-    config_app_folder() + &get_config().database_file
+    config_app_folder()
+        + &get_config()
+            .expect("Failed to read config file.")
+            .database_file
 }
 
 fn unix_week() -> i64 {
@@ -227,18 +222,19 @@ fn readable_date(unix_time: i64) -> String {
     date.format("%d-%m-%Y").to_string()
 }
 
-pub fn delete_database_file() {
+pub fn delete_database_file() -> Result<(), Box<dyn Error>> {
     if !ask_confirmation("Are you sure you want to delete the database file?") {
-        return;
+        return Ok(());
     }
-    remove_file(database_path()).unwrap();
-    println!("Database file deleted\n");
+    remove_file(database_path())?;
+    println!("Database file deleted.\n");
+    Ok(())
 }
 
 // SQL functions
 
-fn open_connection() -> sqlite::Connection {
-    open(database_path()).unwrap()
+fn open_connection() -> Result<sqlite::Connection, Box<dyn Error>> {
+    Ok(open(database_path())?)
 }
 
 pub fn delete_entry(entry_id: i64) {
@@ -260,11 +256,11 @@ pub fn delete_entry(entry_id: i64) {
         return;
     }
     delete_entry_server(delete_link.as_str());
-    let connection = open_connection();
+    let connection = open_connection().expect("Failed to open connection");
     connection
         .execute(format!("DELETE FROM transfer_data WHERE id = {}", entry_id))
         .expect("Failed to delete entry from database");
-    println!("Entry with id {} deleted\n", entry_id);
+    println!("Entry with id {} deleted.\n", entry_id);
 }
 
 fn delete_entry_server(delete_link: &str) {
@@ -278,7 +274,7 @@ fn delete_entry_server(delete_link: &str) {
 }
 
 pub fn insert_entry(name: &str, link: &str, delete_link: &str) -> Result<(), Box<dyn Error>> {
-    let connection = open_connection();
+    let connection = open_connection().expect("Failed to open connection");
     connection
         .execute(
             format!(
@@ -293,7 +289,7 @@ pub fn insert_entry(name: &str, link: &str, delete_link: &str) -> Result<(), Box
 }
 
 pub fn get_single_entry(entry_id: i64) -> Result<Option<Link>, Box<dyn Error>> {
-    let connection = open_connection();
+    let connection = open_connection().expect("Failed to open connection");
     let mut cursor = connection
         .prepare(format!(
             "SELECT * FROM transfer_data WHERE id = {}",
@@ -301,7 +297,7 @@ pub fn get_single_entry(entry_id: i64) -> Result<Option<Link>, Box<dyn Error>> {
         ))?
         .into_cursor();
 
-    if let Some(row) = cursor.next().unwrap() {
+    if let Some(row) = cursor.next()? {
         return Ok(Some(Link {
             id: row[0].as_integer().unwrap(),
             name: String::from(row[1].as_string().unwrap()),
@@ -315,7 +311,7 @@ pub fn get_single_entry(entry_id: i64) -> Result<Option<Link>, Box<dyn Error>> {
 }
 
 pub fn create_table() -> Result<(), Box<dyn Error>> {
-    let connection = open_connection();
+    let connection = open_connection().expect("Failed to open connection");
     connection.execute(
         "
         CREATE TABLE IF NOT EXISTS transfer_data (
@@ -331,7 +327,7 @@ pub fn create_table() -> Result<(), Box<dyn Error>> {
 }
 
 pub fn get_all_entries() -> Result<Vec<Link>, Box<dyn Error>> {
-    let connection = open_connection();
+    let connection = open_connection().expect("Failed to open connection");
     let mut cursor = connection
         .prepare("SELECT * FROM transfer_data")?
         .into_cursor();
