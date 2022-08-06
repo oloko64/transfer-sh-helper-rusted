@@ -9,7 +9,11 @@ extern crate prettytable;
 
 fn execute_delete_by_id() {
     println!();
-    if utils::output_data(utils::get_all_entries(), false) <= 0 {
+    if utils::output_data(
+        &utils::get_all_entries().expect("Failed while trying to read all entries."),
+        false,
+    ) <= 0
+    {
         println!("No data to delete");
         exit(0);
     }
@@ -23,12 +27,15 @@ fn execute_delete_by_id() {
 
 fn execute_list(del_links: bool) {
     println!();
-    utils::output_data(utils::get_all_entries(), del_links);
+    utils::output_data(
+        &utils::get_all_entries().expect("Failed while trying to read all entries."),
+        del_links,
+    );
     println!();
 }
 
 fn execute_drop() {
-    utils::delete_database_file();
+    utils::delete_database_file().expect("Failed to delete database file.");
 }
 
 fn execute_transfer(path: &str) {
@@ -58,13 +65,16 @@ fn execute_transfer(path: &str) {
         println!("\nUploading... please wait\n");
         utils::transfer_file(entry_name.trim(), path);
     }
-    utils::output_data(utils::get_all_entries(), false);
+    utils::output_data(
+        &utils::get_all_entries().expect("Failed while trying to read all entries."),
+        false,
+    );
     println!();
 }
 
 fn run_app() {
-    utils::create_config_app_folder();
-    utils::create_table();
+    utils::create_config_app_folder().expect("Failed to create config folder.");
+    utils::create_table().expect("Failed to create table.");
     let args = arg_parser::prepare_args();
     if let Some(path) = args.upload_file {
         execute_transfer(&path);

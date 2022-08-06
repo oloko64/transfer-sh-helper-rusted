@@ -1,6 +1,6 @@
 [package]
 name = "transferhelper"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 
 [profile.release]
@@ -11,9 +11,9 @@ lto = "thin"
 [dependencies]
 sqlite = "0.26.0"
 time = "0.3.11"
-home = "0.5.3"
 chrono = "0.4.19"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 prettytable-rs = "0.8.0"
 clap = { version = "3.2.16", features = ["derive"] }
+dirs = "4.0.0"

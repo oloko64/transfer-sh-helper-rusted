@@ -1,5 +1,5 @@
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
-use home::home_dir;
+use dirs::config_dir;
 use prettytable::Table;
 use serde::{Deserialize, Serialize};
 use sqlite::open;
@@ -68,60 +68,54 @@ pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
     }
 }
 
-pub fn get_config() -> Config {
+pub fn get_config() -> Result<Config, Box<dyn Error>> {
     let config_path = config_app_folder() + "transfer-helper-config.json";
     let default_config = Config::new();
 
-    match read_to_string(config_path.clone()) {
+    Ok(match read_to_string(&config_path) {
         Ok(config) => match serde_json::from_str(&config) {
             Ok(config) => config,
             Err(_) => {
-                write(
-                    config_path,
-                    serde_json::to_string_pretty(&default_config).unwrap(),
-                )
-                .unwrap();
+                write(config_path, serde_json::to_string_pretty(&default_config)?)?;
                 default_config
             }
         },
         Err(_) => {
-            write(
-                config_path,
-                serde_json::to_string_pretty(&default_config).unwrap(),
-            )
-            .unwrap();
+            write(config_path, serde_json::to_string_pretty(&default_config)?)?;
             default_config
         }
-    }
+    })
 }
 
 fn is_link_expired(upload_time: i64) -> bool {
-    current_time() - upload_time > unix_week()
+    current_time().expect("Failed to get current time.") - upload_time > unix_week()
 }
 
-fn current_time() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
+fn current_time() -> Result<i64, Box<dyn Error>> {
+    Ok(SystemTime::now()
+        .duration_since(UNIX_EPOCH)?
         .as_secs()
-        .try_into()
-        .unwrap()
+        .try_into()?)
 }
 
-pub fn create_config_app_folder() {
-    create_dir_all(config_app_folder()).unwrap()
+pub fn create_config_app_folder() -> Result<(), Box<dyn Error>> {
+    create_dir_all(config_app_folder())?;
+    Ok(())
 }
 
 fn config_app_folder() -> String {
-    let path = match home_dir() {
+    let config_path = match config_dir() {
         Some(path) => path.display().to_string(),
-        None => panic!("Could not get home directory"),
+        None => panic!("Could not get config directory"),
     };
-    path + "/.config/transfer-sh-helper/"
+    config_path + "/transfer-sh-helper/"
 }
 
 fn database_path() -> String {
-    config_app_folder() + &get_config().database_file
+    config_app_folder()
+        + &get_config()
+            .expect("Failed to read config file.")
+            .database_file
 }
 
 fn unix_week() -> i64 {
@@ -137,7 +131,7 @@ fn ask_confirmation(text: &str) -> bool {
     confirmation.trim().to_lowercase().starts_with('y')
 }
 
-pub fn upload_file(file_path: &str) -> TransferResponse {
+pub fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn Error>> {
     let output = Command::new("curl")
         .arg("-v")
         .arg("--upload-file")
@@ -146,8 +140,7 @@ pub fn upload_file(file_path: &str) -> TransferResponse {
             "https://transfer.sh/{}",
             file_path.split('/').last().unwrap()
         ))
-        .output()
-        .expect("Failed to execute upload command");
+        .output()?;
 
     let mut delete_link = String::new();
     for line in String::from_utf8_lossy(&output.stderr)
@@ -161,22 +154,32 @@ pub fn upload_file(file_path: &str) -> TransferResponse {
             break;
         }
     }
-    TransferResponse {
+    Ok(TransferResponse {
         transfer_link: String::from_utf8_lossy(&output.stdout).to_string(),
         delete_link,
-    }
+    })
 }
 
 pub fn transfer_file(entry_name: &str, file_path: &str) {
-    let transfer_response = upload_file(file_path);
+    let transfer_response = upload_file(file_path).unwrap_or_else(|err| {
+        eprintln!("Error while uploading file: {}", err);
+        exit(1);
+    });
     insert_entry(
         entry_name,
         &transfer_response.transfer_link,
         &transfer_response.delete_link,
-    );
+    )
+    .unwrap_or_else(|err| {
+        eprintln!("Error while inserting entry: {}", err);
+        eprintln!("But the file was uploaded successfully");
+        eprintln!("\nLink: {}", transfer_response.transfer_link);
+        eprintln!("Delete link: {}\n", transfer_response.delete_link);
+        exit(1);
+    });
 }
 
-pub fn output_data(data: Vec<Link>, del_links: bool) -> i32 {
+pub fn output_data(data: &Vec<Link>, del_links: bool) -> i32 {
     if data.is_empty() {
         println!("No entries found.");
         println!("Run \"transferhelper -h\" to see all available commands.\n");
@@ -185,7 +188,7 @@ pub fn output_data(data: Vec<Link>, del_links: bool) -> i32 {
     let mut table = Table::new();
     if del_links {
         table.add_row(row!["ID", "Name", "Delete Link", "Expire Date", "Expired"]);
-        for entry in &data {
+        for entry in data {
             table.add_row(row![
                 entry.id,
                 entry.name,
@@ -196,7 +199,7 @@ pub fn output_data(data: Vec<Link>, del_links: bool) -> i32 {
         }
     } else {
         table.add_row(row!["ID", "Name", "Link", "Expire Date", "Expired"]);
-        for entry in &data {
+        for entry in data {
             table.add_row(row![
                 entry.id,
                 entry.name,
@@ -219,28 +222,30 @@ fn readable_date(unix_time: i64) -> String {
     date.format("%d-%m-%Y").to_string()
 }
 
-pub fn delete_database_file() {
+pub fn delete_database_file() -> Result<(), Box<dyn Error>> {
     if !ask_confirmation("Are you sure you want to delete the database file?") {
-        return;
+        return Ok(());
     }
-    remove_file(database_path()).unwrap();
-    println!("Database file deleted\n");
+    remove_file(database_path())?;
+    println!("Database file deleted.\n");
+    Ok(())
 }
 
 // SQL functions
 
-fn open_connection() -> sqlite::Connection {
-    open(database_path()).unwrap()
+fn open_connection() -> Result<sqlite::Connection, Box<dyn Error>> {
+    Ok(open(database_path())?)
 }
 
 pub fn delete_entry(entry_id: i64) {
-    let delete_link = match get_single_entry(entry_id) {
-        Some(link) => link.delete_link,
-        None => {
-            println!("\nEntry with id {} not found\n", entry_id);
-            return;
-        }
-    };
+    let delete_link =
+        match get_single_entry(entry_id).expect("Failed to get this entry from the database") {
+            Some(link) => link.delete_link,
+            None => {
+                println!("\nEntry with id {} not found\n", entry_id);
+                return;
+            }
+        };
     if !ask_confirmation(
         format!(
             "Are you sure you want to delete the entry {}? (It will also delete from the cloud)",
@@ -251,11 +256,11 @@ pub fn delete_entry(entry_id: i64) {
         return;
     }
     delete_entry_server(delete_link.as_str());
-    let connection = open_connection();
+    let connection = open_connection().expect("Failed to open connection");
     connection
         .execute(format!("DELETE FROM transfer_data WHERE id = {}", entry_id))
         .expect("Failed to delete entry from database");
-    println!("Entry with id {} deleted\n", entry_id);
+    println!("Entry with id {} deleted.\n", entry_id);
 }
 
 fn delete_entry_server(delete_link: &str) {
@@ -268,8 +273,8 @@ fn delete_entry_server(delete_link: &str) {
         .expect("Failed to delete entry from transfer.sh servers");
 }
 
-pub fn insert_entry(name: &str, link: &str, delete_link: &str) {
-    let connection = open_connection();
+pub fn insert_entry(name: &str, link: &str, delete_link: &str) -> Result<(), Box<dyn Error>> {
+    let connection = open_connection().expect("Failed to open connection");
     connection
         .execute(
             format!(
@@ -277,40 +282,38 @@ pub fn insert_entry(name: &str, link: &str, delete_link: &str) {
                 name,
                 link,
                 delete_link,
-                current_time()
+                current_time().expect("Failed to get current time.")
             ),
-        )
-        .unwrap();
+        )?;
+    Ok(())
 }
 
-pub fn get_single_entry(entry_id: i64) -> Option<Link> {
-    let connection = open_connection();
+pub fn get_single_entry(entry_id: i64) -> Result<Option<Link>, Box<dyn Error>> {
+    let connection = open_connection().expect("Failed to open connection");
     let mut cursor = connection
         .prepare(format!(
             "SELECT * FROM transfer_data WHERE id = {}",
             entry_id
-        ))
-        .unwrap()
+        ))?
         .into_cursor();
 
-    if let Some(row) = cursor.next().unwrap() {
-        return Some(Link {
+    if let Some(row) = cursor.next()? {
+        return Ok(Some(Link {
             id: row[0].as_integer().unwrap(),
             name: String::from(row[1].as_string().unwrap()),
             link: String::from(row[2].as_string().unwrap()),
             delete_link: String::from(row[3].as_string().unwrap()),
             unix_time: row[4].as_integer().unwrap(),
             is_expired: is_link_expired(row[4].as_integer().unwrap()),
-        });
+        }));
     }
-    None
+    Ok(None)
 }
 
-pub fn create_table() {
-    let connection = open_connection();
-    connection
-        .execute(
-            "
+pub fn create_table() -> Result<(), Box<dyn Error>> {
+    let connection = open_connection().expect("Failed to open connection");
+    connection.execute(
+        "
         CREATE TABLE IF NOT EXISTS transfer_data (
         'id'	INTEGER,
         'name'	TEXT,
@@ -319,20 +322,19 @@ pub fn create_table() {
         'unixTime'	INTEGER,
         PRIMARY KEY('id' AUTOINCREMENT));
         ",
-        )
-        .unwrap();
+    )?;
+    Ok(())
 }
 
-pub fn get_all_entries() -> Vec<Link> {
-    let connection = open_connection();
+pub fn get_all_entries() -> Result<Vec<Link>, Box<dyn Error>> {
+    let connection = open_connection().expect("Failed to open connection");
     let mut cursor = connection
-        .prepare("SELECT * FROM transfer_data")
-        .unwrap()
+        .prepare("SELECT * FROM transfer_data")?
         .into_cursor();
 
     let mut result: Vec<Link> = vec![];
 
-    while let Some(row) = cursor.next().unwrap() {
+    while let Some(row) = cursor.next()? {
         result.append(&mut vec![Link {
             id: row[0].as_integer().unwrap(),
             name: String::from(row[1].as_string().unwrap()),
@@ -342,5 +344,5 @@ pub fn get_all_entries() -> Vec<Link> {
             is_expired: is_link_expired(row[4].as_integer().unwrap()),
         }]);
     }
-    result
+    Ok(result)
 }
