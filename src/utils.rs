@@ -96,16 +96,14 @@ pub fn get_config() -> Config {
 }
 
 fn is_link_expired(upload_time: i64) -> bool {
-    current_time() - upload_time > unix_week()
+    current_time().expect("Failed to get current time.") - upload_time > unix_week()
 }
 
-fn current_time() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
+fn current_time() -> Result<i64, Box<dyn Error>> {
+    Ok(SystemTime::now()
+        .duration_since(UNIX_EPOCH)?
         .as_secs()
-        .try_into()
-        .unwrap()
+        .try_into()?)
 }
 
 pub fn create_config_app_folder() -> Result<(), Box<dyn Error>> {
@@ -138,7 +136,7 @@ fn ask_confirmation(text: &str) -> bool {
     confirmation.trim().to_lowercase().starts_with('y')
 }
 
-pub fn upload_file(file_path: &str) -> TransferResponse {
+pub fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn Error>> {
     let output = Command::new("curl")
         .arg("-v")
         .arg("--upload-file")
@@ -147,8 +145,7 @@ pub fn upload_file(file_path: &str) -> TransferResponse {
             "https://transfer.sh/{}",
             file_path.split('/').last().unwrap()
         ))
-        .output()
-        .expect("Failed to execute upload command");
+        .output()?;
 
     let mut delete_link = String::new();
     for line in String::from_utf8_lossy(&output.stderr)
@@ -162,19 +159,29 @@ pub fn upload_file(file_path: &str) -> TransferResponse {
             break;
         }
     }
-    TransferResponse {
+    Ok(TransferResponse {
         transfer_link: String::from_utf8_lossy(&output.stdout).to_string(),
         delete_link,
-    }
+    })
 }
 
 pub fn transfer_file(entry_name: &str, file_path: &str) {
-    let transfer_response = upload_file(file_path);
+    let transfer_response = upload_file(file_path).unwrap_or_else(|err| {
+        eprintln!("Error while uploading file: {}", err);
+        exit(1);
+    });
     insert_entry(
         entry_name,
         &transfer_response.transfer_link,
         &transfer_response.delete_link,
-    );
+    )
+    .unwrap_or_else(|err| {
+        eprintln!("Error while inserting entry: {}", err);
+        eprintln!("But the file was uploaded successfully");
+        eprintln!("\nLink: {}", transfer_response.transfer_link);
+        eprintln!("Delete link: {}\n", transfer_response.delete_link);
+        exit(1);
+    });
 }
 
 pub fn output_data(data: Vec<Link>, del_links: bool) -> i32 {
@@ -270,7 +277,7 @@ fn delete_entry_server(delete_link: &str) {
         .expect("Failed to delete entry from transfer.sh servers");
 }
 
-pub fn insert_entry(name: &str, link: &str, delete_link: &str) {
+pub fn insert_entry(name: &str, link: &str, delete_link: &str) -> Result<(), Box<dyn Error>> {
     let connection = open_connection();
     connection
         .execute(
@@ -279,10 +286,10 @@ pub fn insert_entry(name: &str, link: &str, delete_link: &str) {
                 name,
                 link,
                 delete_link,
-                current_time()
+                current_time().expect("Failed to get current time.")
             ),
-        )
-        .unwrap();
+        )?;
+    Ok(())
 }
 
 pub fn get_single_entry(entry_id: i64) -> Result<Option<Link>, Box<dyn Error>> {
