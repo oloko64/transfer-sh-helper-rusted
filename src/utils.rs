@@ -108,8 +108,9 @@ fn current_time() -> i64 {
         .unwrap()
 }
 
-pub fn create_config_app_folder() {
-    create_dir_all(config_app_folder()).unwrap()
+pub fn create_config_app_folder() -> Result<(), Box<dyn Error>> {
+    create_dir_all(config_app_folder())?;
+    Ok(())
 }
 
 fn config_app_folder() -> String {
@@ -306,11 +307,10 @@ pub fn get_single_entry(entry_id: i64) -> Option<Link> {
     None
 }
 
-pub fn create_table() {
+pub fn create_table() -> Result<(), Box<dyn Error>> {
     let connection = open_connection();
-    connection
-        .execute(
-            "
+    connection.execute(
+        "
         CREATE TABLE IF NOT EXISTS transfer_data (
         'id'	INTEGER,
         'name'	TEXT,
@@ -319,8 +319,8 @@ pub fn create_table() {
         'unixTime'	INTEGER,
         PRIMARY KEY('id' AUTOINCREMENT));
         ",
-        )
-        .unwrap();
+    )?;
+    Ok(())
 }
 
 pub fn get_all_entries() -> Vec<Link> {

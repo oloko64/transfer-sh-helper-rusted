@@ -63,8 +63,8 @@ fn execute_transfer(path: &str) {
 }
 
 fn run_app() {
-    utils::create_config_app_folder();
-    utils::create_table();
+    utils::create_config_app_folder().expect("Failed to create config folder.");
+    utils::create_table().expect("Failed to create table.");
     let args = arg_parser::prepare_args();
     if let Some(path) = args.upload_file {
         execute_transfer(&path);
