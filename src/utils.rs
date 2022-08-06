@@ -235,13 +235,14 @@ fn open_connection() -> sqlite::Connection {
 }
 
 pub fn delete_entry(entry_id: i64) {
-    let delete_link = match get_single_entry(entry_id) {
-        Some(link) => link.delete_link,
-        None => {
-            println!("\nEntry with id {} not found\n", entry_id);
-            return;
-        }
-    };
+    let delete_link =
+        match get_single_entry(entry_id).expect("Failed to get this entry from the database") {
+            Some(link) => link.delete_link,
+            None => {
+                println!("\nEntry with id {} not found\n", entry_id);
+                return;
+            }
+        };
     if !ask_confirmation(
         format!(
             "Are you sure you want to delete the entry {}? (It will also delete from the cloud)",
@@ -284,27 +285,26 @@ pub fn insert_entry(name: &str, link: &str, delete_link: &str) {
         .unwrap();
 }
 
-pub fn get_single_entry(entry_id: i64) -> Option<Link> {
+pub fn get_single_entry(entry_id: i64) -> Result<Option<Link>, Box<dyn Error>> {
     let connection = open_connection();
     let mut cursor = connection
         .prepare(format!(
             "SELECT * FROM transfer_data WHERE id = {}",
             entry_id
-        ))
-        .unwrap()
+        ))?
         .into_cursor();
 
     if let Some(row) = cursor.next().unwrap() {
-        return Some(Link {
+        return Ok(Some(Link {
             id: row[0].as_integer().unwrap(),
             name: String::from(row[1].as_string().unwrap()),
             link: String::from(row[2].as_string().unwrap()),
             delete_link: String::from(row[3].as_string().unwrap()),
             unix_time: row[4].as_integer().unwrap(),
             is_expired: is_link_expired(row[4].as_integer().unwrap()),
-        });
+        }));
     }
-    None
+    Ok(None)
 }
 
 pub fn create_table() -> Result<(), Box<dyn Error>> {
@@ -323,16 +323,15 @@ pub fn create_table() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn get_all_entries() -> Vec<Link> {
+pub fn get_all_entries() -> Result<Vec<Link>, Box<dyn Error>> {
     let connection = open_connection();
     let mut cursor = connection
-        .prepare("SELECT * FROM transfer_data")
-        .unwrap()
+        .prepare("SELECT * FROM transfer_data")?
         .into_cursor();
 
     let mut result: Vec<Link> = vec![];
 
-    while let Some(row) = cursor.next().unwrap() {
+    while let Some(row) = cursor.next()? {
         result.append(&mut vec![Link {
             id: row[0].as_integer().unwrap(),
             name: String::from(row[1].as_string().unwrap()),
@@ -342,5 +341,5 @@ pub fn get_all_entries() -> Vec<Link> {
             is_expired: is_link_expired(row[4].as_integer().unwrap()),
         }]);
     }
-    result
+    Ok(result)
 }
