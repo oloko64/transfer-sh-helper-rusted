@@ -2,7 +2,7 @@ use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use dirs::config_dir;
 use prettytable::Table;
 use serde::{Deserialize, Serialize};
-use sqlite::open;
+use sqlite::{open, Row};
 use std::{
     error::Error,
     fs::{self, create_dir_all, read_to_string, remove_file, write},
@@ -155,7 +155,7 @@ pub fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn Error>> 
         }
     }
     Ok(TransferResponse {
-        transfer_link: String::from_utf8_lossy(&output.stdout).to_string(),
+        transfer_link: String::from_utf8_lossy(&output.stdout).into_owned(),
         delete_link,
     })
 }
@@ -246,13 +246,10 @@ pub fn delete_entry(entry_id: i64) {
                 return;
             }
         };
-    if !ask_confirmation(
-        format!(
-            "Are you sure you want to delete the entry {}? (It will also delete from the cloud)",
-            entry_id
-        )
-        .as_str(),
-    ) {
+    if !ask_confirmation(&format!(
+        "Are you sure you want to delete the entry {}? (It will also delete from the cloud)",
+        entry_id
+    )) {
         return;
     }
     delete_entry_server(delete_link.as_str());
@@ -290,21 +287,25 @@ pub fn insert_entry(name: &str, link: &str, delete_link: &str) -> Result<(), Box
 
 pub fn get_single_entry(entry_id: i64) -> Result<Option<Link>, Box<dyn Error>> {
     let connection = open_connection().expect("Failed to open connection");
-    let mut cursor = connection
+    let cursor = connection
         .prepare(format!(
             "SELECT * FROM transfer_data WHERE id = {}",
             entry_id
         ))?
-        .into_cursor();
+        .into_cursor()
+        .bind(&[])?;
 
-    if let Some(row) = cursor.next()? {
+    if let Some(row) = (cursor.collect::<Result<Vec<Row>, _>>()?)
+        .into_iter()
+        .next()
+    {
         return Ok(Some(Link {
-            id: row[0].as_integer().unwrap(),
-            name: String::from(row[1].as_string().unwrap()),
-            link: String::from(row[2].as_string().unwrap()),
-            delete_link: String::from(row[3].as_string().unwrap()),
-            unix_time: row[4].as_integer().unwrap(),
-            is_expired: is_link_expired(row[4].as_integer().unwrap()),
+            id: row.get::<i64, usize>(0),
+            name: row.get::<String, usize>(1),
+            link: row.get::<String, usize>(2),
+            delete_link: row.get::<String, usize>(3),
+            unix_time: row.get::<i64, usize>(4),
+            is_expired: is_link_expired(row.get::<i64, usize>(4)),
         }));
     }
     Ok(None)
@@ -328,20 +329,20 @@ pub fn create_table() -> Result<(), Box<dyn Error>> {
 
 pub fn get_all_entries() -> Result<Vec<Link>, Box<dyn Error>> {
     let connection = open_connection().expect("Failed to open connection");
-    let mut cursor = connection
+    let cursor = connection
         .prepare("SELECT * FROM transfer_data")?
-        .into_cursor();
+        .into_cursor()
+        .bind(&[])?;
 
     let mut result: Vec<Link> = vec![];
-
-    while let Some(row) = cursor.next()? {
+    for row in cursor.collect::<Result<Vec<Row>, _>>()? {
         result.append(&mut vec![Link {
-            id: row[0].as_integer().unwrap(),
-            name: String::from(row[1].as_string().unwrap()),
-            link: String::from(row[2].as_string().unwrap()),
-            delete_link: String::from(row[3].as_string().unwrap()),
-            unix_time: row[4].as_integer().unwrap(),
-            is_expired: is_link_expired(row[4].as_integer().unwrap()),
+            id: row.get::<i64, usize>(0),
+            name: row.get::<String, usize>(1),
+            link: row.get::<String, usize>(2),
+            delete_link: row.get::<String, usize>(3),
+            unix_time: row.get::<i64, usize>(4),
+            is_expired: is_link_expired(row.get::<i64, usize>(4)),
         }]);
     }
     Ok(result)
