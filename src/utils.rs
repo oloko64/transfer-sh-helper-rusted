@@ -300,12 +300,12 @@ pub fn get_single_entry(entry_id: i64) -> Result<Option<Link>, Box<dyn Error>> {
         .next()
     {
         return Ok(Some(Link {
-            id: row.get::<i64, usize>(0),
-            name: row.get::<String, usize>(1),
-            link: row.get::<String, usize>(2),
-            delete_link: row.get::<String, usize>(3),
-            unix_time: row.get::<i64, usize>(4),
-            is_expired: is_link_expired(row.get::<i64, usize>(4)),
+            id: row.get::<i64, _>("id"),
+            name: row.get::<String, _>("name"),
+            link: row.get::<String, _>("link"),
+            delete_link: row.get::<String, _>("deleteLink"),
+            unix_time: row.get::<i64, _>("unixTime"),
+            is_expired: is_link_expired(row.get::<i64, _>("unixTime")),
         }));
     }
     Ok(None)
@@ -337,12 +337,12 @@ pub fn get_all_entries() -> Result<Vec<Link>, Box<dyn Error>> {
     let mut result: Vec<Link> = vec![];
     for row in cursor.collect::<Result<Vec<Row>, _>>()? {
         result.append(&mut vec![Link {
-            id: row.get::<i64, usize>(0),
-            name: row.get::<String, usize>(1),
-            link: row.get::<String, usize>(2),
-            delete_link: row.get::<String, usize>(3),
-            unix_time: row.get::<i64, usize>(4),
-            is_expired: is_link_expired(row.get::<i64, usize>(4)),
+            id: row.get::<i64, _>("id"),
+            name: row.get::<String, _>("name"),
+            link: row.get::<String, _>("link"),
+            delete_link: row.get::<String, _>("deleteLink"),
+            unix_time: row.get::<i64, _>("unixTime"),
+            is_expired: is_link_expired(row.get::<i64, _>("unixTime")),
         }]);
     }
     Ok(result)
