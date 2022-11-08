@@ -288,12 +288,9 @@ pub fn insert_entry(name: &str, link: &str, delete_link: &str) -> Result<(), Box
 pub fn get_single_entry(entry_id: i64) -> Result<Option<Link>, Box<dyn Error>> {
     let connection = open_connection().expect("Failed to open connection");
     let cursor = connection
-        .prepare(format!(
-            "SELECT * FROM transfer_data WHERE id = {}",
-            entry_id
-        ))?
+        .prepare("SELECT * FROM transfer_data WHERE id = ?")?
         .into_cursor()
-        .bind(&[])?;
+        .bind(&[entry_id.into()])?;
 
     if let Some(row) = (cursor.collect::<Result<Vec<Row>, _>>()?)
         .into_iter()
@@ -331,8 +328,7 @@ pub fn get_all_entries() -> Result<Vec<Link>, Box<dyn Error>> {
     let connection = open_connection().expect("Failed to open connection");
     let cursor = connection
         .prepare("SELECT * FROM transfer_data")?
-        .into_cursor()
-        .bind(&[])?;
+        .into_cursor();
 
     let mut result: Vec<Link> = vec![];
     for row in cursor.collect::<Result<Vec<Row>, _>>()? {
