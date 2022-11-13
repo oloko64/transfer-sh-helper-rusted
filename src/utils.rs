@@ -11,6 +11,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+const UNIX_WEEK: u64 = 1_209_600;
+
 pub struct TransferResponse {
     pub transfer_link: String,
     pub delete_link: String,
@@ -59,7 +61,7 @@ impl Link {
     }
 
     fn is_link_expired(upload_time: u64) -> bool {
-        current_time().expect("Failed to get current time.") - upload_time > unix_week()
+        current_time().expect("Failed to get current time.") - upload_time > UNIX_WEEK
     }
 }
 
@@ -146,10 +148,6 @@ fn config_app_folder() -> String {
         None => panic!("Could not get config directory"),
     };
     config_path + "/transfer-sh-helper/"
-}
-
-fn unix_week() -> u64 {
-    1_209_600
 }
 
 fn ask_confirmation(text: &str) -> bool {
@@ -247,8 +245,7 @@ pub fn output_data(data: &Vec<Link>, del_links: bool) -> i32 {
 
 fn readable_date(unix_time: u64) -> String {
     let date = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp_opt((unix_time + unix_week()) as i64, 0)
-            .expect("Invalid date"),
+        NaiveDateTime::from_timestamp_opt((unix_time + UNIX_WEEK) as i64, 0).expect("Invalid date"),
         Utc,
     );
     date.format("%d-%m-%Y").to_string()
