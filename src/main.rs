@@ -1,18 +1,21 @@
 mod arg_parser;
+mod database;
 mod utils;
 use std::{
     io::{self, Write},
     process::exit,
 };
-#[macro_use]
-extern crate prettytable;
 
-fn execute_delete_by_id() {
+use database::Database;
+
+fn execute_delete_by_id(database: &Database) {
     println!();
     if utils::output_data(
-        &utils::get_all_entries().expect("Failed while trying to read all entries."),
+        &database
+            .get_all_entries()
+            .expect("Failed while trying to read all entries."),
         false,
-    ) <= 0
+    ) == 0
     {
         println!("No data to delete");
         exit(0);
@@ -22,23 +25,27 @@ fn execute_delete_by_id() {
     print!("Enter the id of the entry you want to remove: ");
     io::stdout().flush().unwrap();
     io::stdin().read_line(&mut id).expect("Failed to read line");
-    utils::delete_entry(id.trim().parse::<i64>().expect("Failed to parse id"))
+    database.delete_entry(id.trim().parse::<i64>().expect("Failed to parse id"));
 }
 
-fn execute_list(del_links: bool) {
+fn execute_list(del_links: bool, database: &Database) {
     println!();
     utils::output_data(
-        &utils::get_all_entries().expect("Failed while trying to read all entries."),
+        &database
+            .get_all_entries()
+            .expect("Failed while trying to read all entries."),
         del_links,
     );
     println!();
 }
 
-fn execute_drop() {
-    utils::delete_database_file().expect("Failed to delete database file.");
+fn execute_drop(database: &Database) {
+    database
+        .delete_database_file()
+        .expect("Failed to delete database file.");
 }
 
-fn execute_transfer(path: &str) {
+fn execute_transfer(path: &str, database: &Database) {
     match utils::get_file_size(path) {
         Ok(size) => {
             println!("File size: {}", size);
@@ -63,31 +70,29 @@ fn execute_transfer(path: &str) {
             entry_name = default_name.to_string();
         }
         println!("\nUploading... please wait\n");
-        utils::transfer_file(entry_name.trim(), path);
+        database.transfer_file(entry_name.trim(), path);
     }
     utils::output_data(
-        &utils::get_all_entries().expect("Failed while trying to read all entries."),
+        &database
+            .get_all_entries()
+            .expect("Failed while trying to read all entries."),
         false,
     );
     println!();
 }
 
 fn run_app() {
+    let database = Database::new();
     utils::create_config_app_folder().expect("Failed to create config folder.");
-    utils::create_table().expect("Failed to create table.");
+    database.create_table().expect("Failed to create table.");
     let args = arg_parser::prepare_args();
-    if let Some(path) = args.upload_file {
-        execute_transfer(&path);
-    } else if args.list {
-        execute_list(false);
-    } else if args.list_del {
-        execute_list(true);
-    } else if args.delete {
-        execute_delete_by_id();
-    } else if args.drop {
-        execute_drop();
-    } else {
-        execute_list(false);
+
+    match args {
+        arg_parser::AppOptions::List => execute_list(false, &database),
+        arg_parser::AppOptions::ListDel => execute_list(true, &database),
+        arg_parser::AppOptions::Delete => execute_delete_by_id(&database),
+        arg_parser::AppOptions::Drop => execute_drop(&database),
+        arg_parser::AppOptions::Transfer(path) => execute_transfer(&path, &database),
     }
 }
 

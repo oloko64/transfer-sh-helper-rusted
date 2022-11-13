@@ -25,6 +25,33 @@ pub struct Args {
     pub upload_file: Option<String>,
 }
 
-pub fn prepare_args() -> Args {
-    Args::parse()
+pub enum AppOptions {
+    List,
+    ListDel,
+    Delete,
+    Drop,
+    Transfer(String),
+}
+
+impl AppOptions {
+    fn new(args: Args) -> AppOptions {
+        if args.list {
+            AppOptions::List
+        } else if args.list_del {
+            AppOptions::ListDel
+        } else if args.delete {
+            AppOptions::Delete
+        } else if args.drop {
+            AppOptions::Drop
+        } else if let Some(path) = args.upload_file {
+            AppOptions::Transfer(path)
+        } else {
+            AppOptions::List
+        }
+    }
+}
+
+pub fn prepare_args() -> AppOptions {
+    let args = Args::parse();
+    AppOptions::new(args)
 }
