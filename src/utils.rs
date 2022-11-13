@@ -35,7 +35,7 @@ pub struct Link {
     name: String,
     link: String,
     delete_link: String,
-    unix_time: i64,
+    unix_time: u64,
     is_expired: bool,
 }
 
@@ -46,12 +46,19 @@ impl Link {
             name: row.read::<&str, _>("name").to_owned(),
             link: row.read::<&str, _>("link").to_owned(),
             delete_link: row.read::<&str, _>("deleteLink").to_owned(),
-            unix_time: row.read::<i64, _>("unixTime"),
-            is_expired: Link::is_link_expired(row.read::<i64, _>("unixTime")),
+            unix_time: row
+                .read::<i64, _>("unixTime")
+                .try_into()
+                .expect("unixTime cannot be converted to u64"),
+            is_expired: Link::is_link_expired(
+                row.read::<i64, _>("unixTime")
+                    .try_into()
+                    .expect("unixTime cannot be converted to u64"),
+            ),
         }
     }
 
-    fn is_link_expired(upload_time: i64) -> bool {
+    fn is_link_expired(upload_time: u64) -> bool {
         current_time().expect("Failed to get current time.") - upload_time > unix_week()
     }
 }
@@ -121,7 +128,7 @@ pub fn get_config() -> Result<Config, Box<dyn Error>> {
     })
 }
 
-fn current_time() -> Result<i64, Box<dyn Error>> {
+fn current_time() -> Result<u64, Box<dyn Error>> {
     Ok(SystemTime::now()
         .duration_since(UNIX_EPOCH)?
         .as_secs()
@@ -141,7 +148,7 @@ fn config_app_folder() -> String {
     config_path + "/transfer-sh-helper/"
 }
 
-fn unix_week() -> i64 {
+fn unix_week() -> u64 {
     1_209_600
 }
 
@@ -238,9 +245,10 @@ pub fn output_data(data: &Vec<Link>, del_links: bool) -> i32 {
     data.len() as i32
 }
 
-fn readable_date(unix_time: i64) -> String {
+fn readable_date(unix_time: u64) -> String {
     let date = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp(unix_time + unix_week(), 0),
+        NaiveDateTime::from_timestamp_opt((unix_time + unix_week()) as i64, 0)
+            .expect("Invalid date"),
         Utc,
     );
     date.format("%d-%m-%Y").to_string()
