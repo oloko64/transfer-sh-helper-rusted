@@ -31,12 +31,47 @@ impl Config {
 }
 
 pub struct Link {
-    pub id: i64,
-    pub name: String,
-    pub link: String,
-    pub delete_link: String,
-    pub unix_time: i64,
-    pub is_expired: bool,
+    id: i64,
+    name: String,
+    link: String,
+    delete_link: String,
+    unix_time: i64,
+    is_expired: bool,
+}
+
+impl Link {
+    fn new(row: &Row) -> Link {
+        Link {
+            id: row.read::<i64, _>("id"),
+            name: row.read::<&str, _>("name").to_owned(),
+            link: row.read::<&str, _>("link").to_owned(),
+            delete_link: row.read::<&str, _>("deleteLink").to_owned(),
+            unix_time: row.read::<i64, _>("unixTime"),
+            is_expired: Link::is_link_expired(row.read::<i64, _>("unixTime")),
+        }
+    }
+
+    fn is_link_expired(upload_time: i64) -> bool {
+        current_time().expect("Failed to get current time.") - upload_time > unix_week()
+    }
+}
+
+pub struct Database {
+    connection: sqlite::Connection,
+    database_path: String,
+}
+
+impl Database {
+    pub fn new() -> Database {
+        let database_path = config_app_folder()
+            + &get_config()
+                .expect("Failed to read config file.")
+                .database_file;
+        Database {
+            connection: open(&database_path).expect("Failed to open database file."),
+            database_path,
+        }
+    }
 }
 
 pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
@@ -47,10 +82,11 @@ pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
         )));
     }
     let size = fs::metadata(path)?.len();
+    #[allow(clippy::cast_precision_loss)]
     let float_size = size as f64;
-    let kb = 1024_f64;
-    let mb = (1024 * 1024) as f64;
-    let gb = (1024 * 1024 * 1024) as f64;
+    let kb = f64::from(1024);
+    let mb = f64::from(1024 * 1024);
+    let gb = f64::from(1024 * 1024 * 1024);
 
     match size {
         0 => Err(Box::new(io::Error::new(
@@ -58,9 +94,9 @@ pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
             "File is empty",
         ))),
         1..=1023 => Ok(format!("{}B", float_size)),
-        1024..=1048575 => Ok(format!("{:.2}KB", float_size / kb)),
-        1048576..=1073741823 => Ok(format!("{:.2}MB", float_size / mb)),
-        1073741824..=1610612735 => Ok(format!("{:.2}GB", float_size / gb)),
+        1024..=1_048_575 => Ok(format!("{:.2}KB", float_size / kb)),
+        1_048_576..=1_073_741_823 => Ok(format!("{:.2}MB", float_size / mb)),
+        1_073_741_824..=1_610_612_735 => Ok(format!("{:.2}GB", float_size / gb)),
         _ => Err(Box::new(io::Error::new(
             io::ErrorKind::Other,
             "File over the 1.5GB limit",
@@ -72,23 +108,17 @@ pub fn get_config() -> Result<Config, Box<dyn Error>> {
     let config_path = config_app_folder() + "transfer-helper-config.json";
     let default_config = Config::new();
 
-    Ok(match read_to_string(&config_path) {
-        Ok(config) => match serde_json::from_str(&config) {
-            Ok(config) => config,
-            Err(_) => {
-                write(config_path, serde_json::to_string_pretty(&default_config)?)?;
-                default_config
-            }
-        },
-        Err(_) => {
+    Ok(if let Ok(config) = read_to_string(&config_path) {
+        if let Ok(config) = serde_json::from_str(&config) {
+            config
+        } else {
             write(config_path, serde_json::to_string_pretty(&default_config)?)?;
             default_config
         }
+    } else {
+        write(config_path, serde_json::to_string_pretty(&default_config)?)?;
+        default_config
     })
-}
-
-fn is_link_expired(upload_time: i64) -> bool {
-    current_time().expect("Failed to get current time.") - upload_time > unix_week()
 }
 
 fn current_time() -> Result<i64, Box<dyn Error>> {
@@ -111,15 +141,8 @@ fn config_app_folder() -> String {
     config_path + "/transfer-sh-helper/"
 }
 
-fn database_path() -> String {
-    config_app_folder()
-        + &get_config()
-            .expect("Failed to read config file.")
-            .database_file
-}
-
 fn unix_week() -> i64 {
-    1209600
+    1_209_600
 }
 
 fn ask_confirmation(text: &str) -> bool {
@@ -160,7 +183,7 @@ pub fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn Error>> 
     })
 }
 
-pub fn transfer_file(entry_name: &str, file_path: &str) {
+pub fn transfer_file(entry_name: &str, file_path: &str, database: &Database) {
     let transfer_response = upload_file(file_path).unwrap_or_else(|err| {
         eprintln!("Error while uploading file: {}", err);
         exit(1);
@@ -169,6 +192,7 @@ pub fn transfer_file(entry_name: &str, file_path: &str) {
         entry_name,
         &transfer_response.transfer_link,
         &transfer_response.delete_link,
+        database,
     )
     .unwrap_or_else(|err| {
         eprintln!("Error while inserting entry: {}", err);
@@ -222,39 +246,35 @@ fn readable_date(unix_time: i64) -> String {
     date.format("%d-%m-%Y").to_string()
 }
 
-pub fn delete_database_file() -> Result<(), Box<dyn Error>> {
+pub fn delete_database_file(database: &Database) -> Result<(), Box<dyn Error>> {
     if !ask_confirmation("Are you sure you want to delete the database file?") {
         return Ok(());
     }
-    remove_file(database_path())?;
+    remove_file(&database.database_path)?;
     println!("Database file deleted.\n");
     Ok(())
 }
 
 // SQL functions
 
-fn open_connection() -> Result<sqlite::Connection, Box<dyn Error>> {
-    Ok(open(database_path())?)
-}
-
-pub fn delete_entry(entry_id: i64) {
-    let delete_link =
-        match get_single_entry(entry_id).expect("Failed to get this entry from the database") {
-            Some(link) => link.delete_link,
-            None => {
-                println!("\nEntry with id {} not found\n", entry_id);
-                return;
-            }
-        };
+pub fn delete_entry(entry_id: i64, database: &Database) {
+    let delete_link = if let Some(link) =
+        get_single_entry(entry_id, database).expect("Failed to get this entry from the database")
+    {
+        link.delete_link
+    } else {
+        println!("\nEntry with id {} not found\n", entry_id);
+        return;
+    };
     if !ask_confirmation(&format!(
         "Are you sure you want to delete the entry {}? (It will also delete from the cloud)",
         entry_id
     )) {
         return;
     }
-    delete_entry_server(delete_link.as_str());
-    let connection = open_connection().expect("Failed to open connection");
-    connection
+    delete_entry_server(&delete_link);
+    database
+        .connection
         .execute(format!("DELETE FROM transfer_data WHERE id = {}", entry_id))
         .expect("Failed to delete entry from database");
     println!("Entry with id {} deleted.\n", entry_id);
@@ -270,9 +290,13 @@ fn delete_entry_server(delete_link: &str) {
         .expect("Failed to delete entry from transfer.sh servers");
 }
 
-pub fn insert_entry(name: &str, link: &str, delete_link: &str) -> Result<(), Box<dyn Error>> {
-    let connection = open_connection().expect("Failed to open connection");
-    connection
+pub fn insert_entry(
+    name: &str,
+    link: &str,
+    delete_link: &str,
+    database: &Database,
+) -> Result<(), Box<dyn Error>> {
+    database.connection
         .execute(
             format!(
                 "INSERT INTO transfer_data (name, link, deleteLink, unixTime) VALUES ('{}', '{}', '{}', {})",
@@ -285,32 +309,27 @@ pub fn insert_entry(name: &str, link: &str, delete_link: &str) -> Result<(), Box
     Ok(())
 }
 
-pub fn get_single_entry(entry_id: i64) -> Result<Option<Link>, Box<dyn Error>> {
-    let connection = open_connection().expect("Failed to open connection");
-    let cursor = connection
+pub fn get_single_entry(
+    entry_id: i64,
+    database: &Database,
+) -> Result<Option<Link>, Box<dyn Error>> {
+    let cursor = database
+        .connection
         .prepare("SELECT * FROM transfer_data WHERE id = ?")?
-        .into_cursor()
-        .bind(&[entry_id.into()])?;
+        .into_iter()
+        .bind((1, entry_id))?;
 
     if let Some(row) = (cursor.collect::<Result<Vec<Row>, _>>()?)
         .into_iter()
         .next()
     {
-        return Ok(Some(Link {
-            id: row.get::<i64, _>("id"),
-            name: row.get::<String, _>("name"),
-            link: row.get::<String, _>("link"),
-            delete_link: row.get::<String, _>("deleteLink"),
-            unix_time: row.get::<i64, _>("unixTime"),
-            is_expired: is_link_expired(row.get::<i64, _>("unixTime")),
-        }));
+        return Ok(Some(Link::new(&row)));
     }
     Ok(None)
 }
 
-pub fn create_table() -> Result<(), Box<dyn Error>> {
-    let connection = open_connection().expect("Failed to open connection");
-    connection.execute(
+pub fn create_table(database: &Database) -> Result<(), Box<dyn Error>> {
+    database.connection.execute(
         "
         CREATE TABLE IF NOT EXISTS transfer_data (
         'id'	INTEGER,
@@ -324,22 +343,15 @@ pub fn create_table() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn get_all_entries() -> Result<Vec<Link>, Box<dyn Error>> {
-    let connection = open_connection().expect("Failed to open connection");
-    let cursor = connection
+pub fn get_all_entries(database: &Database) -> Result<Vec<Link>, Box<dyn Error>> {
+    let cursor = database
+        .connection
         .prepare("SELECT * FROM transfer_data")?
-        .into_cursor();
+        .into_iter();
 
     let mut result: Vec<Link> = vec![];
     for row in cursor.collect::<Result<Vec<Row>, _>>()? {
-        result.append(&mut vec![Link {
-            id: row.get::<i64, _>("id"),
-            name: row.get::<String, _>("name"),
-            link: row.get::<String, _>("link"),
-            delete_link: row.get::<String, _>("deleteLink"),
-            unix_time: row.get::<i64, _>("unixTime"),
-            is_expired: is_link_expired(row.get::<i64, _>("unixTime")),
-        }]);
+        result.append(&mut vec![Link::new(&row)]);
     }
     Ok(result)
 }

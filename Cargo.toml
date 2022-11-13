@@ -1,6 +1,6 @@
 [package]
 name = "transferhelper"
-version = "0.1.9"
+version = "0.2.0"
 edition = "2021"
 authors = ["OLoKo64 <reinaldorozatoj.11cg1@aleeas.com>"]
 
@@ -12,7 +12,7 @@ strip = true # Only works on *nix systems
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sqlite = "0.28.1"
+sqlite = "0.30.1"
 time = "0.3.11"
 chrono = "0.4.19"
 serde = { version = "1.0", features = ["derive"] }
