@@ -21,19 +21,11 @@ I am just a user from their services, so I wrote this script to help me remember
 
 # Installation
 
-This is the easiest part, just go to the releases and download the [latest version](https://github.com/OLoKo64/transfer-sh-helper-rusted/releases), after that you just need to extract the file and execute the program inside a terminal:
-
 ```bash
-./trasferhelper
+cargo install transferhelper
 ```
 
-If you get a error from not having executable permission just execute:
-
-```bash
-chmod +x transferhelper
-```
-
-You can also place the executable in your `/home/$USER/.local/bin` folder, after that just execute `transferhelper` in your terminal (This folder needs to be on PATH).
+That's it, you are ready to go.
 
 ## Usage
 
@@ -81,7 +73,7 @@ transferhelper -h
 
 ---
 
-## Build the package
+## Build the package from Github
 
 1. Install Rust on your machine, [Rustup](https://rustup.rs/).
 
