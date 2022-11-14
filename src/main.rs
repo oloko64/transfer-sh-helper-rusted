@@ -83,7 +83,6 @@ fn execute_transfer(path: &str, database: &Database) {
 
 fn run_app() {
     let database = Database::new();
-    utils::create_config_app_folder().expect("Failed to create config folder.");
     database.create_table().expect("Failed to create table.");
     let args = arg_parser::prepare_args();
 

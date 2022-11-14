@@ -4,7 +4,7 @@ use sqlite::{open, Row};
 
 use crate::utils::{
     ask_confirmation, config_app_folder, current_time, delete_entry_server, get_config,
-    upload_file, Link,
+    upload_file, Link, create_config_app_folder,
 };
 
 pub struct Database {
@@ -14,6 +14,8 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> Database {
+        create_config_app_folder().expect("Failed to create config folder.");
+
         let database_path = config_app_folder()
             + &get_config()
                 .expect("Failed to read config file.")
