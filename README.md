@@ -89,16 +89,16 @@ transferhelper -h
 
 3. Inside the cloned folder run:
 ```bash
-cargo b --release
+cargo install
 ```
+## Thats it
 
-4. Run your executable from `target/release/transferhelper`.
-
-## Add `.local/bin` to path
-
-Just add this code to your `.bashrc` or `.bash_profile`
+Now you can use the program from your terminal.
 
 ```bash
-# Add local bin to path
-export PATH=$PATH:/home/$USER/.local/bin
+transferhelper -h
 ```
+
+### If you don't want to compile the program
+
+You can download the [latest release](https://github.com/OLoKo64/transfer-sh-helper-rusted/releases), I already compiled it for you.
