@@ -1,10 +1,10 @@
+use anyhow::{bail, ensure, Result};
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use dirs::config_dir;
 use prettytable::{row, Table};
 use serde::{Deserialize, Serialize};
 use sqlite::Row;
 use std::{
-    error::Error,
     fs::{self, create_dir_all, read_to_string, write},
     io::{self, Write},
     process::{exit, Command},
@@ -73,13 +73,9 @@ impl Link {
     }
 }
 
-pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
-    if !fs::metadata(path)?.is_file() {
-        return Err(Box::new(io::Error::new(
-            io::ErrorKind::NotFound,
-            format!("{} is not a file", path),
-        )));
-    }
+pub fn get_file_size(path: &str) -> Result<String> {
+    ensure!(fs::metadata(path)?.is_file(), "Path is not a file.");
+
     let size = fs::metadata(path)?.len();
     #[allow(clippy::cast_precision_loss)]
     let float_size = size as f64;
@@ -88,22 +84,16 @@ pub fn get_file_size(path: &str) -> Result<String, Box<dyn Error>> {
     let gb = f64::from(1024 * 1024 * 1024);
 
     match size {
-        0 => Err(Box::new(io::Error::new(
-            io::ErrorKind::Other,
-            "File is empty",
-        ))),
+        0 => bail!("File is empty"),
         1..=1023 => Ok(format!("{}B", float_size)),
         1024..=1_048_575 => Ok(format!("{:.2}KB", float_size / kb)),
         1_048_576..=1_073_741_823 => Ok(format!("{:.2}MB", float_size / mb)),
         1_073_741_824..=1_610_612_735 => Ok(format!("{:.2}GB", float_size / gb)),
-        _ => Err(Box::new(io::Error::new(
-            io::ErrorKind::Other,
-            "File over the 1.5GB limit",
-        ))),
+        _ => bail!("File over the 1.5GB limit"),
     }
 }
 
-pub fn get_config() -> Result<Config, Box<dyn Error>> {
+pub fn get_config() -> Result<Config> {
     let config_path = config_app_folder() + "transfer-helper-config.json";
     let default_config = Config::new();
 
@@ -120,11 +110,11 @@ pub fn get_config() -> Result<Config, Box<dyn Error>> {
     })
 }
 
-pub fn current_time() -> Result<u64, Box<dyn Error>> {
+pub fn current_time() -> Result<u64> {
     Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
 }
 
-pub fn create_config_app_folder() -> Result<(), Box<dyn Error>> {
+pub fn create_config_app_folder() -> Result<()> {
     create_dir_all(config_app_folder())?;
     Ok(())
 }
@@ -146,7 +136,7 @@ pub fn ask_confirmation(text: &str) -> bool {
     confirmation.trim().to_lowercase().starts_with('y')
 }
 
-pub fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn Error>> {
+pub fn upload_file(file_path: &str) -> Result<TransferResponse> {
     let output = Command::new("curl")
         .arg("-v")
         .arg("--upload-file")

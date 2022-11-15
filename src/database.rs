@@ -1,10 +1,11 @@
-use std::{error::Error, fs::remove_file, process::exit};
+use anyhow::Result;
+use std::{fs::remove_file, process::exit};
 
 use sqlite::{open, Row};
 
 use crate::utils::{
-    ask_confirmation, config_app_folder, current_time, delete_entry_server, get_config,
-    upload_file, Link, create_config_app_folder,
+    ask_confirmation, config_app_folder, create_config_app_folder, current_time,
+    delete_entry_server, get_config, upload_file, Link,
 };
 
 pub struct Database {
@@ -26,7 +27,7 @@ impl Database {
         }
     }
 
-    pub fn create_table(&self) -> Result<(), Box<dyn Error>> {
+    pub fn create_table(&self) -> Result<()> {
         self.connection.execute(
             "
             CREATE TABLE IF NOT EXISTS transfer_data (
@@ -41,7 +42,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_all_entries(&self) -> Result<Vec<Link>, Box<dyn Error>> {
+    pub fn get_all_entries(&self) -> Result<Vec<Link>> {
         let cursor = self
             .connection
             .prepare("SELECT * FROM transfer_data")?
@@ -73,12 +74,7 @@ impl Database {
         });
     }
 
-    pub fn insert_entry(
-        &self,
-        name: &str,
-        link: &str,
-        delete_link: &str,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn insert_entry(&self, name: &str, link: &str, delete_link: &str) -> Result<()> {
         self.connection
         .execute(
             format!(
@@ -92,7 +88,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn delete_database_file(&self) -> Result<(), Box<dyn Error>> {
+    pub fn delete_database_file(&self) -> Result<()> {
         if !ask_confirmation("Are you sure you want to delete the database file?") {
             return Ok(());
         }
@@ -124,7 +120,7 @@ impl Database {
         println!("Entry with id {} deleted.\n", entry_id);
     }
 
-    pub fn get_single_entry(&self, entry_id: i64) -> Result<Option<Link>, Box<dyn Error>> {
+    pub fn get_single_entry(&self, entry_id: i64) -> Result<Option<Link>> {
         let cursor = self
             .connection
             .prepare("SELECT * FROM transfer_data WHERE id = ?")?
