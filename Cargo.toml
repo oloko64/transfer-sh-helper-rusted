@@ -1,6 +1,6 @@
 [package]
 name = "transferhelper"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 authors = ["OLoKo64 <reinaldorozatoj.11cg1@aleeas.com>"]
 keywords = ["color", "transfersh", "transfer", "terminal", "upload"]
@@ -25,3 +25,5 @@ prettytable-rs = "0.9.0"
 clap = { version = "4.0.22", features = ["derive"] }
 dirs = "4.0.0"
 anyhow = "1.0.66"
+ureq = "2.5.0"
+owo-colors = "3.5.0"

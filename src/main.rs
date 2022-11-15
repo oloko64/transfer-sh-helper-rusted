@@ -7,6 +7,7 @@ use std::{
 };
 
 use database::Database;
+use owo_colors::OwoColorize;
 
 fn execute_delete_by_id(database: &Database) {
     println!();
@@ -60,7 +61,7 @@ fn execute_transfer(path: &str, database: &Database) {
         let mut entry_name = String::new();
         print!(
             "\nEnter the name of the entry (Default name: {}): ",
-            default_name
+            default_name.green()
         );
         io::stdout().flush().unwrap();
         io::stdin()

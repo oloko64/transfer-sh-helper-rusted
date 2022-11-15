@@ -1,7 +1,6 @@
 use anyhow::Result;
-use std::{fs::remove_file, process::exit};
-
 use sqlite::{open, Row};
+use std::{fs::remove_file, process::exit};
 
 use crate::utils::{
     ask_confirmation, config_app_folder, create_config_app_folder, current_time,
@@ -113,11 +112,23 @@ impl Database {
         )) {
             return;
         }
-        delete_entry_server(&delete_link);
-        self.connection
-            .execute(format!("DELETE FROM transfer_data WHERE id = {}", entry_id))
-            .expect("Failed to delete entry from database");
-        println!("Entry with id {} deleted.\n", entry_id);
+        match delete_entry_server(&delete_link) {
+            Ok(_) => {
+                self.connection
+                    .execute(format!("DELETE FROM transfer_data WHERE id = {}", entry_id))
+                    .expect("Failed to delete entry from database");
+                println!("Entry with id {} deleted.\n", entry_id);
+            }
+            Err(err) => {
+                eprintln!("Error while deleting entry from server: {}", err);
+                if ask_confirmation("Do you want to delete the entry from the database anyway?") {
+                    self.connection
+                        .execute(format!("DELETE FROM transfer_data WHERE id = {}", entry_id))
+                        .expect("Failed to delete entry from database");
+                    println!("Entry with id {} deleted.\n", entry_id);
+                }
+            }
+        };
     }
 
     pub fn get_single_entry(&self, entry_id: i64) -> Result<Option<Link>> {
