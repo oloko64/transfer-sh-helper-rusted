@@ -1,15 +1,17 @@
 use anyhow::{bail, ensure, Result};
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use dirs::config_dir;
+use owo_colors::OwoColorize;
 use prettytable::{row, Table};
 use serde::{Deserialize, Serialize};
 use sqlite::Row;
 use std::{
-    fs::{self, create_dir_all, read_to_string, write},
+    fs::{self, create_dir_all, read_to_string, write, File},
     io::{self, Write},
-    process::{exit, Command},
+    process::exit,
     time::{SystemTime, UNIX_EPOCH},
 };
+use ureq::{Error, Response};
 
 const UNIX_WEEK: u64 = 1_209_600;
 
@@ -129,7 +131,7 @@ pub fn config_app_folder() -> String {
 
 pub fn ask_confirmation(text: &str) -> bool {
     let mut confirmation = String::new();
-    print!("\n{} (y/N): ", text);
+    print!("\n{} (y/N): ", text.yellow());
     io::stdout().flush().unwrap();
     io::stdin().read_line(&mut confirmation).unwrap();
     println!();
@@ -137,30 +139,21 @@ pub fn ask_confirmation(text: &str) -> bool {
 }
 
 pub fn upload_file(file_path: &str) -> Result<TransferResponse> {
-    let output = Command::new("curl")
-        .arg("-v")
-        .arg("--upload-file")
-        .arg(file_path)
-        .arg(format!(
-            "https://transfer.sh/{}",
-            file_path.split('/').last().unwrap()
-        ))
-        .output()?;
+    let file_stream = File::open(file_path)?;
+    let response = ureq::put(&format!(
+        "https://transfer.sh/{}",
+        file_path.split('/').last().unwrap()
+    ))
+    .send(&file_stream)?;
 
-    let mut delete_link = String::new();
-    for line in String::from_utf8_lossy(&output.stderr)
-        .split('\n')
-        .collect::<Vec<&str>>()
-    {
-        if line.starts_with("< x-url-delete:") {
-            delete_link = line.split("< x-url-delete:").collect::<Vec<&str>>()[1]
-                .trim()
-                .to_string();
-            break;
-        }
-    }
+    let delete_link = if let Some(delete_link) = response.header("x-url-delete") {
+        delete_link.to_owned()
+    } else {
+        String::from("--------------------------------")
+    };
+
     Ok(TransferResponse {
-        transfer_link: String::from_utf8_lossy(&output.stdout).into_owned(),
+        transfer_link: response.into_string()?,
         delete_link,
     })
 }
@@ -208,12 +201,9 @@ fn readable_date(unix_time: u64) -> String {
     date.format("%d-%m-%Y").to_string()
 }
 
-pub fn delete_entry_server(delete_link: &str) {
-    Command::new("curl")
-        .arg("-v")
-        .arg("-X")
-        .arg("DELETE")
-        .arg(delete_link)
-        .output()
-        .expect("Failed to delete entry from transfer.sh servers");
+pub fn delete_entry_server(delete_link: &str) -> Result<Response, Box<Error>> {
+    match ureq::delete(delete_link).call() {
+        Ok(response) => Ok(response),
+        Err(error) => Err(Box::new(error)),
+    }
 }
