@@ -49,10 +49,10 @@ fn execute_drop(database: &Database) {
 fn execute_transfer(path: &str, database: &Database) {
     match utils::get_file_size(path) {
         Ok(size) => {
-            println!("File size: {}", size);
+            println!("File size: {size}");
         }
         Err(err) => {
-            eprintln!("{}", err);
+            eprintln!("{err}");
             exit(1);
         }
     };

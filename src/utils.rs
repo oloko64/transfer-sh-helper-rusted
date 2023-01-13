@@ -87,7 +87,7 @@ pub fn get_file_size(path: &str) -> Result<String> {
 
     match size {
         0 => bail!("File is empty"),
-        1..=1023 => Ok(format!("{}B", float_size)),
+        1..=1023 => Ok(format!("{float_size}B")),
         1024..=1_048_575 => Ok(format!("{:.2}KB", float_size / kb)),
         1_048_576..=1_073_741_823 => Ok(format!("{:.2}MB", float_size / mb)),
         1_073_741_824..=1_610_612_735 => Ok(format!("{:.2}GB", float_size / gb)),
