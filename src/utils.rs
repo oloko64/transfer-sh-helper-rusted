@@ -141,7 +141,7 @@ pub fn ask_confirmation(text: &str) -> bool {
 }
 
 pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
-    let file = tokio::fs::File::open(&file_path).await.unwrap();
+    let file = tokio::fs::File::open(&file_path).await.expect("Cannot open file.");
     let total_size = file
         .metadata()
         .await
@@ -165,7 +165,7 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
     let response = reqwest::Client::new()
         .put(&format!(
             "https://transfer.sh/{}",
-            file_path.split('/').last().unwrap()
+            file_path.split('/').last().expect("Cannot get file name.")
         ))
         .body(reqwest::Body::wrap_stream(async_stream))
         .send()
