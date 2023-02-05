@@ -54,8 +54,8 @@ impl Database {
         Ok(result)
     }
 
-    pub fn transfer_file(&self, entry_name: &str, file_path: &str) {
-        let transfer_response = upload_file(file_path).unwrap_or_else(|err| {
+    pub async fn transfer_file(&self, entry_name: &str, file_path: &str) {
+        let transfer_response = upload_file(file_path).await.unwrap_or_else(|err| {
             eprintln!("Error while uploading file: {err}");
             exit(1)
         });
@@ -96,7 +96,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn delete_entry(&self, entry_id: i64) {
+    pub async fn delete_entry(&self, entry_id: i64) {
         let delete_link = if let Some(link) = self
             .get_single_entry(entry_id)
             .expect("Failed to get this entry from the database")
@@ -111,7 +111,7 @@ impl Database {
         )) {
             return;
         }
-        match delete_entry_server(&delete_link) {
+        match delete_entry_server(&delete_link).await {
             Ok(_) => {
                 self.connection
                     .execute(format!("DELETE FROM transfer_data WHERE id = {entry_id}"))
