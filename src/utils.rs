@@ -173,13 +173,12 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
 
     println!("\n");
 
-    let headers = response.headers().get("x-url-delete");
-
-    let delete_link = if let Some(delete_link) = headers {
-        delete_link.to_str()?.to_owned()
-    } else {
-        String::from("--------------------------------")
-    };
+    let delete_link = response
+        .headers()
+        .get("x-url-delete")
+        .expect("No delete link found.")
+        .to_str()?
+        .to_owned();
 
     Ok(TransferResponse {
         transfer_link: response.text().await?,
