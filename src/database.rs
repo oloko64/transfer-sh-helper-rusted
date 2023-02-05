@@ -54,9 +54,9 @@ impl Database {
         Ok(result)
     }
 
-    pub fn transfer_file(&self, entry_name: &str, file_path: &str) {
-        let transfer_response = upload_file(file_path).unwrap_or_else(|err| {
-            eprintln!("Error while uploading file: {}", err);
+    pub async fn transfer_file(&self, entry_name: &str, file_path: &str) {
+        let transfer_response = upload_file(file_path).await.unwrap_or_else(|err| {
+            eprintln!("Error while uploading file: {err}");
             exit(1)
         });
         self.insert_entry(
@@ -65,7 +65,7 @@ impl Database {
             &transfer_response.delete_link,
         )
         .unwrap_or_else(|err| {
-            eprintln!("Error while inserting entry: {}", err);
+            eprintln!("Error while inserting entry: {err}");
             eprintln!("But the file was uploaded successfully");
             eprintln!("\nLink: {}", transfer_response.transfer_link);
             eprintln!("Delete link: {}\n", transfer_response.delete_link);
@@ -96,36 +96,35 @@ impl Database {
         Ok(())
     }
 
-    pub fn delete_entry(&self, entry_id: i64) {
+    pub async fn delete_entry(&self, entry_id: i64) {
         let delete_link = if let Some(link) = self
             .get_single_entry(entry_id)
             .expect("Failed to get this entry from the database")
         {
             link.get_delete_link()
         } else {
-            println!("\nEntry with id {} not found\n", entry_id);
+            println!("\nEntry with id {entry_id} not found\n");
             return;
         };
         if !ask_confirmation(&format!(
-            "Are you sure you want to delete the entry {}? (It will also delete from the cloud)",
-            entry_id
+            "Are you sure you want to delete the entry {entry_id}? (It will also delete from the cloud)"
         )) {
             return;
         }
-        match delete_entry_server(&delete_link) {
+        match delete_entry_server(&delete_link).await {
             Ok(_) => {
                 self.connection
-                    .execute(format!("DELETE FROM transfer_data WHERE id = {}", entry_id))
+                    .execute(format!("DELETE FROM transfer_data WHERE id = {entry_id}"))
                     .expect("Failed to delete entry from database");
-                println!("Entry with id {} deleted.\n", entry_id);
+                println!("Entry with id {entry_id} deleted.\n");
             }
             Err(err) => {
-                eprintln!("Error while deleting entry from server: {}", err);
+                eprintln!("Error while deleting entry from server: {err}");
                 if ask_confirmation("Do you want to delete the entry from the database anyway?") {
                     self.connection
-                        .execute(format!("DELETE FROM transfer_data WHERE id = {}", entry_id))
+                        .execute(format!("DELETE FROM transfer_data WHERE id = {entry_id}"))
                         .expect("Failed to delete entry from database");
-                    println!("Entry with id {} deleted.\n", entry_id);
+                    println!("Entry with id {entry_id} deleted.\n");
                 }
             }
         };

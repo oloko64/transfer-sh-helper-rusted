@@ -3,16 +3,19 @@ use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use dirs::config_dir;
 use owo_colors::OwoColorize;
 use prettytable::{row, Table};
+use reqwest::Response;
 use serde::{Deserialize, Serialize};
 use sqlite::Row;
 use std::{
-    fs::{self, create_dir_all, read_to_string, write, File},
+    fs::{self, create_dir_all, read_to_string, write},
     io::{self, Write},
     process::exit,
     time::{SystemTime, UNIX_EPOCH},
 };
-use ureq::{Error, Response};
+use tokio_stream::StreamExt;
+use tokio_util::io::ReaderStream;
 
+use crate::transfer_table;
 const UNIX_WEEK: u64 = 1_209_600;
 
 pub struct TransferResponse {
@@ -79,7 +82,6 @@ pub fn get_file_size(path: &str) -> Result<String> {
     ensure!(fs::metadata(path)?.is_file(), "Path is not a file.");
 
     let size = fs::metadata(path)?.len();
-    #[allow(clippy::cast_precision_loss)]
     let float_size = size as f64;
     let kb = f64::from(1024);
     let mb = f64::from(1024 * 1024);
@@ -87,7 +89,7 @@ pub fn get_file_size(path: &str) -> Result<String> {
 
     match size {
         0 => bail!("File is empty"),
-        1..=1023 => Ok(format!("{}B", float_size)),
+        1..=1023 => Ok(format!("{float_size}B")),
         1024..=1_048_575 => Ok(format!("{:.2}KB", float_size / kb)),
         1_048_576..=1_073_741_823 => Ok(format!("{:.2}MB", float_size / mb)),
         1_073_741_824..=1_610_612_735 => Ok(format!("{:.2}GB", float_size / gb)),
@@ -138,22 +140,48 @@ pub fn ask_confirmation(text: &str) -> bool {
     confirmation.trim().to_lowercase().starts_with('y')
 }
 
-pub fn upload_file(file_path: &str) -> Result<TransferResponse> {
-    let file_stream = File::open(file_path)?;
-    let response = ureq::put(&format!(
-        "https://transfer.sh/{}",
-        file_path.split('/').last().unwrap()
-    ))
-    .send(&file_stream)?;
+pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
+    let file = tokio::fs::File::open(&file_path).await.expect("Cannot open file.");
+    let total_size = file
+        .metadata()
+        .await
+        .expect("Cannot determine input file size")
+        .len();
+    let mut reader_stream = ReaderStream::new(file);
+    let mut total_uploaded = 0_f64;
 
-    let delete_link = if let Some(delete_link) = response.header("x-url-delete") {
-        delete_link.to_owned()
-    } else {
-        String::from("--------------------------------")
+    let async_stream = async_stream::stream! {
+        while let Some(chunk) = reader_stream.next().await {
+            if let Ok(chunk) = &chunk {
+                total_uploaded += chunk.len() as f64;
+                let progress = (total_uploaded / total_size as f64) * 100.0;
+                print!("\rUploading... {:.2}%", progress.green());
+                io::stdout().flush().unwrap();
+            }
+            yield chunk;
+        }
     };
 
+    let response = reqwest::Client::new()
+        .put(&format!(
+            "https://transfer.sh/{}",
+            file_path.split('/').last().expect("Cannot get file name.")
+        ))
+        .body(reqwest::Body::wrap_stream(async_stream))
+        .send()
+        .await?;
+
+    println!("\n");
+
+    let delete_link = response
+        .headers()
+        .get("x-url-delete")
+        .expect("No delete link found.")
+        .to_str()?
+        .to_owned();
+
     Ok(TransferResponse {
-        transfer_link: response.into_string()?,
+        transfer_link: response.text().await?,
         delete_link,
     })
 }
@@ -164,32 +192,8 @@ pub fn output_data(data: &Vec<Link>, del_links: bool) -> usize {
         println!("Run \"transferhelper -h\" to see all available commands.\n");
         exit(0);
     }
-    let mut table = Table::new();
-    if del_links {
-        table.add_row(row!["ID", "Name", "Delete Link", "Expire Date", "Expired"]);
-        for entry in data {
-            table.add_row(row![
-                entry.id,
-                entry.name,
-                entry.delete_link,
-                readable_date(entry.unix_time),
-                entry.is_expired
-            ]);
-        }
-    } else {
-        table.add_row(row!["ID", "Name", "Link", "Expire Date", "Expired"]);
-        for entry in data {
-            table.add_row(row![
-                entry.id,
-                entry.name,
-                entry.link,
-                readable_date(entry.unix_time),
-                entry.is_expired
-            ]);
-        }
-    }
+    transfer_table!(data, del_links);
 
-    table.printstd();
     data.len()
 }
 
@@ -201,9 +205,6 @@ fn readable_date(unix_time: u64) -> String {
     date.format("%d-%m-%Y").to_string()
 }
 
-pub fn delete_entry_server(delete_link: &str) -> Result<Response, Box<Error>> {
-    match ureq::delete(delete_link).call() {
-        Ok(response) => Ok(response),
-        Err(error) => Err(Box::new(error)),
-    }
+pub async fn delete_entry_server(delete_link: &str) -> Result<Response, reqwest::Error> {
+    reqwest::Client::new().delete(delete_link).send().await
 }
