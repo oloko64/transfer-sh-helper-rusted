@@ -74,16 +74,21 @@ impl Database {
     }
 
     pub fn insert_entry(&self, name: &str, link: &str, delete_link: &str) -> Result<()> {
-        self.connection
-        .execute(
-            format!(
-                "INSERT INTO transfer_data (name, link, deleteLink, unixTime) VALUES ('{}', '{}', '{}', {})",
-                name,
-                link,
-                delete_link,
-                current_time().expect("Failed to get current time.")
-            ),
-        )?;
+        let current_time = &current_time()
+            .expect("Failed to get current time.")
+            .to_string();
+        let query = "INSERT INTO transfer_data (name, link, deleteLink, unixTime) VALUES (:name, :link, :deleteLink, :unixTime)";
+        let query_params = &[
+            (":name", name),
+            (":link", link),
+            (":deleteLink", delete_link),
+            (":unixTime", current_time),
+        ][..];
+
+        let mut statement = self.connection.prepare(query)?;
+        statement.bind(query_params)?;
+        statement.next()?;
+
         Ok(())
     }
 
@@ -103,7 +108,7 @@ impl Database {
         {
             link.get_delete_link()
         } else {
-            println!("\nEntry with id {entry_id} not found\n");
+            println!("\nEntry with id {entry_id} not found.\n");
             return;
         };
         if !ask_confirmation(&format!(
@@ -111,19 +116,24 @@ impl Database {
         )) {
             return;
         }
+
+        let query = format!("DELETE FROM transfer_data WHERE id = :id");
+        let mut statement = self.connection.prepare(&query).unwrap();
+        statement
+            .bind((":id", entry_id))
+            .expect("Failed to bind id to query");
+
         match delete_entry_server(&delete_link).await {
             Ok(_) => {
-                self.connection
-                    .execute(format!("DELETE FROM transfer_data WHERE id = {entry_id}"))
+                statement
+                    .next()
                     .expect("Failed to delete entry from database");
                 println!("Entry with id {entry_id} deleted.\n");
             }
             Err(err) => {
                 eprintln!("Error while deleting entry from server: {err}");
-                if ask_confirmation("Do you want to delete the entry from the database anyway?") {
-                    self.connection
-                        .execute(format!("DELETE FROM transfer_data WHERE id = {entry_id}"))
-                        .expect("Failed to delete entry from database");
+                if ask_confirmation("Do you want to delete the entry from the database anyway? (It will still be accessible from the link)") {
+                    statement.next().expect("Failed to delete entry from database");
                     println!("Entry with id {entry_id} deleted.\n");
                 }
             }
