@@ -1,6 +1,6 @@
 [package]
 name = "transferhelper"
-version = "0.2.5-1"
+version = "0.2.5-2"
 edition = "2021"
 authors = ["OLoKo64 <reinaldorozatoj.11cg1@aleeas.com>"]
 keywords = ["color", "transfersh", "transfer", "terminal", "upload"]
@@ -12,19 +12,19 @@ license-file = "LICENCE"
 [profile.release]
 lto = "thin"
 codegen-units = 1
-strip = true # Only works on *nix systems
+strip = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sqlite = "0.30.3"
+sqlite = "0.30.4"
 chrono = "0.4.23"
 serde = { version = "1.0.152", features = ["derive"] }
-serde_json = "1.0.91"
+serde_json = "1.0.93"
 prettytable-rs = "0.10.0"
 clap = { version = "4.1.4", features = ["derive"] }
 dirs = "4.0.0"
-anyhow = "1.0.68"
+anyhow = "1.0.69"
 owo-colors = "3.5.0"
 tokio = { version = "1.25.0", features = ["macros", "rt"] }
 reqwest = { version = "0.11.14", features = ["stream"] }
