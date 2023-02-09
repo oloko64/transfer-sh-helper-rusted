@@ -141,7 +141,9 @@ pub fn ask_confirmation(text: &str) -> bool {
 }
 
 pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
-    let file = tokio::fs::File::open(&file_path).await.expect("Cannot open file.");
+    let file = tokio::fs::File::open(&file_path)
+        .await
+        .expect("Cannot open file.");
     let total_size = file
         .metadata()
         .await
@@ -186,7 +188,7 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
     })
 }
 
-pub fn output_data(data: &Vec<Link>, del_links: bool) -> usize {
+pub fn output_data(data: &Vec<Link>, del_links: bool) -> Option<()> {
     if data.is_empty() {
         println!("No entries found.");
         println!("Run \"transferhelper -h\" to see all available commands.\n");
@@ -194,12 +196,18 @@ pub fn output_data(data: &Vec<Link>, del_links: bool) -> usize {
     }
     transfer_table!(data, del_links);
 
-    data.len()
+    Some(())
 }
 
 fn readable_date(unix_time: u64) -> String {
     let date = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp_opt((unix_time + UNIX_WEEK) as i64, 0).expect("Invalid date"),
+        NaiveDateTime::from_timestamp_opt(
+            (unix_time + UNIX_WEEK)
+                .try_into()
+                .expect("Failed to convert u64 to i64"),
+            0,
+        )
+        .expect("Invalid date"),
         Utc,
     );
     date.format("%d-%m-%Y").to_string()

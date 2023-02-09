@@ -1,7 +1,7 @@
 use clap::Parser;
 
 /// A simple way to use Transfer.sh from the CLI.
-#[derive(Parser, Debug)]
+#[derive(Parser)]
 #[clap(version)]
 pub struct Args {
     /// List all links on database

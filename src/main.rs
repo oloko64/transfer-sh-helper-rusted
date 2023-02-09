@@ -17,7 +17,8 @@ async fn execute_delete_by_id(database: &Database) {
             .get_all_entries()
             .expect("Failed while trying to read all entries."),
         false,
-    ) == 0
+    )
+    .is_none()
     {
         println!("No data to delete");
         exit(0);
