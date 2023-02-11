@@ -47,7 +47,7 @@ pub struct Link {
     link: String,
     delete_link: String,
     unix_time: u64,
-    is_expired: bool,
+    is_available: bool,
 }
 
 impl Link {
@@ -61,7 +61,7 @@ impl Link {
                 .read::<i64, _>("unixTime")
                 .try_into()
                 .expect("unixTime cannot be converted to u64"),
-            is_expired: Link::is_link_expired(
+            is_available: Link::is_link_available(
                 row.read::<i64, _>("unixTime")
                     .try_into()
                     .expect("unixTime cannot be converted to u64"),
@@ -69,8 +69,8 @@ impl Link {
         }
     }
 
-    fn is_link_expired(upload_time: u64) -> bool {
-        current_time().expect("Failed to get current time.") - upload_time > UNIX_WEEK
+    fn is_link_available(upload_time: u64) -> bool {
+        current_time().expect("Failed to get current time.") - upload_time < UNIX_WEEK
     }
 
     pub fn get_delete_link(&self) -> String {
