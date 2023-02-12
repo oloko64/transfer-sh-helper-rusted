@@ -36,8 +36,8 @@ impl Config {
         }
     }
 
-    pub fn get_database_file(&self) -> String {
-        self.database_file.clone()
+    pub fn get_database_file(&self) -> &str {
+        &self.database_file
     }
 }
 
@@ -73,8 +73,8 @@ impl Link {
         current_time().expect("Failed to get current time.") - upload_time < UNIX_WEEK
     }
 
-    pub fn get_delete_link(&self) -> String {
-        self.delete_link.clone()
+    pub fn get_delete_link(&self) -> &str {
+        &self.delete_link
     }
 }
 

@@ -55,8 +55,11 @@ fn execute_drop() {
         .expect("Failed to delete database file.");
 }
 
-async fn execute_transfer(path: &str) {
-    match utils::get_file_size(path) {
+async fn execute_transfer<T>(path: T)
+where
+    T: AsRef<str>,
+{
+    match utils::get_file_size(path.as_ref()) {
         Ok(size) => {
             println!("File size: {size}");
         }
@@ -67,7 +70,7 @@ async fn execute_transfer(path: &str) {
     };
 
     {
-        let default_name = path.split('/').last().unwrap_or("Default Name");
+        let default_name = path.as_ref().split('/').last().unwrap_or("Default Name");
         let mut entry_name = String::new();
         print!(
             "\nEnter the name of the entry (Default name: {}): ",
@@ -84,7 +87,9 @@ async fn execute_transfer(path: &str) {
         let database = DATABASE
             .try_lock()
             .expect("Failed to acquire lock of database.");
-        database.transfer_file(entry_name.trim(), path).await;
+        database
+            .transfer_file(entry_name.trim(), path.as_ref())
+            .await;
     }
 
     utils::output_data(false);
@@ -102,8 +107,7 @@ async fn run_app() {
     let args = ARGS.get().expect("Failed to get ARGS static variable.");
 
     match args {
-        AppOptions::List => execute_list(false),
-        AppOptions::ListDel => execute_list(true),
+        AppOptions::List { list_del } => execute_list(*list_del),
         AppOptions::Delete => execute_delete_by_id().await,
         AppOptions::Drop => execute_drop(),
         AppOptions::Transfer(path) => execute_transfer(path).await,

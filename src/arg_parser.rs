@@ -9,7 +9,7 @@ pub struct Args {
     pub list: bool,
 
     /// List all delete links on database
-    #[clap(long, action)]
+    #[clap(long, short = 'L', action)]
     pub list_del: bool,
 
     /// Deletes a entry locally as well as from Transfer.sh servers
@@ -21,13 +21,20 @@ pub struct Args {
     pub drop: bool,
 
     /// Upload a file to Transfer.sh servers
-    #[clap(short, long, value_parser)]
+    #[clap(short, long, value_parser = validate_path)]
     pub upload_file: Option<String>,
 }
 
+fn validate_path(path: &str) -> Result<String, String> {
+    if std::path::Path::new(path).exists() {
+        Ok(path.to_string())
+    } else {
+        Err(format!(r#"Provided path does not exist: "{path}""#))
+    }
+}
+
 pub enum AppOptions {
-    List,
-    ListDel,
+    List { list_del: bool },
     Delete,
     Drop,
     Transfer(String),
@@ -38,9 +45,9 @@ impl AppOptions {
         let args = Args::parse();
 
         if args.list {
-            AppOptions::List
-        } else if args.list_del {
-            AppOptions::ListDel
+            AppOptions::List {
+                list_del: args.list_del,
+            }
         } else if args.delete {
             AppOptions::Delete
         } else if args.drop {
@@ -48,7 +55,9 @@ impl AppOptions {
         } else if let Some(path) = args.upload_file {
             AppOptions::Transfer(path)
         } else {
-            AppOptions::List
+            AppOptions::List {
+                list_del: args.list_del,
+            }
         }
     }
 }
