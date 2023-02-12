@@ -1,6 +1,6 @@
 [package]
 name = "transferhelper"
-version = "0.2.7"
+version = "0.2.8"
 edition = "2021"
 authors = ["OLoKo64 <reinaldorozatoj.11cg1@aleeas.com>"]
 keywords = ["color", "transfersh", "transfer", "terminal", "upload"]
@@ -31,3 +31,4 @@ reqwest = { version = "0.11.14", features = ["stream"] }
 tokio-util = "0.7.4"
 async-stream = "0.3.3"
 tokio-stream = "0.1.11"
+once_cell = "1.17.0"

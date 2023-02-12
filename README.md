@@ -46,7 +46,7 @@ transferhelper -l
 ### View your stored delete links:
 
 ```bash
-transferhelper --list-del
+transferhelper -L
 ```
 
 ### Delete a link:

@@ -15,7 +15,7 @@ use std::{
 use tokio_stream::StreamExt;
 use tokio_util::io::ReaderStream;
 
-use crate::transfer_table;
+use crate::{transfer_table, DATABASE};
 const UNIX_WEEK: u64 = 1_209_600;
 
 pub struct TransferResponse {
@@ -36,8 +36,8 @@ impl Config {
         }
     }
 
-    pub fn get_database_file(&self) -> String {
-        self.database_file.clone()
+    pub fn get_database_file(&self) -> &str {
+        &self.database_file
     }
 }
 
@@ -73,8 +73,8 @@ impl Link {
         current_time().expect("Failed to get current time.") - upload_time < UNIX_WEEK
     }
 
-    pub fn get_delete_link(&self) -> String {
-        self.delete_link.clone()
+    pub fn get_delete_link(&self) -> &str {
+        &self.delete_link
     }
 }
 
@@ -188,15 +188,21 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
     })
 }
 
-pub fn output_data(data: &Vec<Link>, del_links: bool) -> Option<()> {
+pub fn output_data(list_del: bool) -> usize {
+    let data = DATABASE
+        .try_lock()
+        .expect("Failed to acquire lock of database.")
+        .get_all_entries()
+        .expect("Failed to get data from database.");
+
     if data.is_empty() {
         println!("No entries found.");
         println!("Run \"transferhelper -h\" to see all available commands.\n");
         exit(0);
     }
-    transfer_table!(data, del_links);
+    transfer_table!(&data, list_del);
 
-    Some(())
+    data.len()
 }
 
 fn readable_date(unix_time: u64) -> String {

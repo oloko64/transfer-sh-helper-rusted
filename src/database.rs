@@ -16,10 +16,10 @@ impl Database {
     pub fn new() -> Database {
         create_config_app_folder().expect("Failed to create config folder.");
 
-        let database_path = config_app_folder()
-            + &get_config()
-                .expect("Failed to read config file.")
-                .get_database_file();
+        let binding = get_config().expect("Failed to read config file.");
+        let database_file = binding.get_database_file();
+
+        let database_path = config_app_folder() + database_file;
         Database {
             connection: open(&database_path).expect("Failed to open database file."),
             database_path,
@@ -106,7 +106,7 @@ impl Database {
             .get_single_entry(entry_id)
             .expect("Failed to get this entry from the database")
         {
-            link.get_delete_link()
+            link.get_delete_link().to_string()
         } else {
             println!("\nEntry with id {entry_id} not found.\n");
             return;
@@ -117,8 +117,8 @@ impl Database {
             return;
         }
 
-        let query = format!("DELETE FROM transfer_data WHERE id = :id");
-        let mut statement = self.connection.prepare(&query).unwrap();
+        let query = "DELETE FROM transfer_data WHERE id = :id";
+        let mut statement = self.connection.prepare(query).unwrap();
         statement
             .bind((":id", entry_id))
             .expect("Failed to bind id to query");
