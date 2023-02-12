@@ -191,7 +191,7 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
 pub fn output_data(delete_links: bool) -> usize {
     let data = DATABASE
         .try_lock()
-        .unwrap()
+        .expect("Failed to acquire lock of database.")
         .get_all_entries()
         .expect("Failed to get data from database.");
 

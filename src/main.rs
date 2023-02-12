@@ -32,7 +32,9 @@ async fn execute_delete_by_id() {
     io::stdout().flush().unwrap();
     io::stdin().read_line(&mut id).expect("Failed to read line");
 
-    let database = DATABASE.try_lock().unwrap();
+    let database = DATABASE
+        .try_lock()
+        .expect("Failed to acquire lock of database.");
     database
         .delete_entry(id.trim().parse::<i64>().expect("Failed to parse id"))
         .await;
@@ -45,7 +47,9 @@ fn execute_list(delete_links: bool) {
 }
 
 fn execute_drop() {
-    let database = DATABASE.try_lock().unwrap();
+    let database = DATABASE
+        .try_lock()
+        .expect("Failed to acquire lock of database.");
     database
         .delete_database_file()
         .expect("Failed to delete database file.");
@@ -77,7 +81,9 @@ async fn execute_transfer(path: &str) {
             entry_name = default_name.to_string();
         }
         println!();
-        let database = DATABASE.try_lock().unwrap();
+        let database = DATABASE
+            .try_lock()
+            .expect("Failed to acquire lock of database.");
         database.transfer_file(entry_name.trim(), path).await;
     }
 
@@ -87,7 +93,9 @@ async fn execute_transfer(path: &str) {
 
 async fn run_app() {
     {
-        let database = DATABASE.try_lock().unwrap();
+        let database = DATABASE
+            .try_lock()
+            .expect("Failed to acquire lock of database.");
         database.create_table().expect("Failed to create table.");
     }
 
