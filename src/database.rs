@@ -117,8 +117,8 @@ impl Database {
             return;
         }
 
-        let query = format!("DELETE FROM transfer_data WHERE id = :id");
-        let mut statement = self.connection.prepare(&query).unwrap();
+        let query = "DELETE FROM transfer_data WHERE id = :id";
+        let mut statement = self.connection.prepare(query).unwrap();
         statement
             .bind((":id", entry_id))
             .expect("Failed to bind id to query");

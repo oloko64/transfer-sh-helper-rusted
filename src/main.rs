@@ -7,19 +7,22 @@ use std::{
     process::exit,
 };
 
+use arg_parser::AppOptions;
 use database::Database;
+use once_cell::sync::{Lazy, OnceCell};
 use owo_colors::OwoColorize;
+use tokio::sync::Mutex;
 
-async fn execute_delete_by_id(database: &Database) {
+static DATABASE: Lazy<Mutex<Database>> = Lazy::new(|| {
+    let database = Database::new();
+    Mutex::new(database)
+});
+
+static ARGS: OnceCell<AppOptions> = OnceCell::new();
+
+async fn execute_delete_by_id() {
     println!();
-    if utils::output_data(
-        &database
-            .get_all_entries()
-            .expect("Failed while trying to read all entries."),
-        false,
-    )
-    .is_none()
-    {
+    if utils::output_data(false).await.is_none() {
         println!("No data to delete");
         exit(0);
     }
@@ -28,29 +31,28 @@ async fn execute_delete_by_id(database: &Database) {
     print!("Enter the id of the entry you want to remove: ");
     io::stdout().flush().unwrap();
     io::stdin().read_line(&mut id).expect("Failed to read line");
+
+    let database = DATABASE.lock().await;
     database
         .delete_entry(id.trim().parse::<i64>().expect("Failed to parse id"))
         .await;
 }
 
-fn execute_list(del_links: bool, database: &Database) {
+async fn execute_list(delete_links: bool) {
     println!();
-    utils::output_data(
-        &database
-            .get_all_entries()
-            .expect("Failed while trying to read all entries."),
-        del_links,
-    );
+    utils::output_data(delete_links).await;
     println!();
 }
 
-fn execute_drop(database: &Database) {
+async fn execute_drop() {
+    let database = DATABASE.lock().await;
     database
         .delete_database_file()
         .expect("Failed to delete database file.");
 }
 
-async fn execute_transfer(path: &str, database: &Database) {
+async fn execute_transfer(path: &str) {
+    let database = DATABASE.lock().await;
     match utils::get_file_size(path) {
         Ok(size) => {
             println!("File size: {size}");
@@ -77,30 +79,31 @@ async fn execute_transfer(path: &str, database: &Database) {
         println!();
         database.transfer_file(entry_name.trim(), path).await;
     }
-    utils::output_data(
-        &database
-            .get_all_entries()
-            .expect("Failed while trying to read all entries."),
-        false,
-    );
+    utils::output_data(false).await;
     println!();
 }
 
 async fn run_app() {
-    let database = Database::new();
-    database.create_table().expect("Failed to create table.");
-    let args = arg_parser::prepare_args();
+    {
+        let database = DATABASE.lock().await;
+        database.create_table().expect("Failed to create table.");
+    }
+
+    let args = ARGS.get().expect("Failed to get ARGS static variable.");
 
     match args {
-        arg_parser::AppOptions::List => execute_list(false, &database),
-        arg_parser::AppOptions::ListDel => execute_list(true, &database),
-        arg_parser::AppOptions::Delete => execute_delete_by_id(&database).await,
-        arg_parser::AppOptions::Drop => execute_drop(&database),
-        arg_parser::AppOptions::Transfer(path) => execute_transfer(&path, &database).await,
+        AppOptions::List { delete_links } => execute_list(*delete_links).await,
+        AppOptions::Delete => execute_delete_by_id().await,
+        AppOptions::Drop => execute_drop().await,
+        AppOptions::Transfer(path) => execute_transfer(path).await,
     }
 }
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    let Ok(_) = ARGS.set(AppOptions::init()) else {
+        panic!("Failed to set ARGS static variable.")
+    };
+
     run_app().await;
 }

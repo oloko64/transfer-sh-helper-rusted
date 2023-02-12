@@ -15,7 +15,7 @@ use std::{
 use tokio_stream::StreamExt;
 use tokio_util::io::ReaderStream;
 
-use crate::transfer_table;
+use crate::{transfer_table, DATABASE};
 const UNIX_WEEK: u64 = 1_209_600;
 
 pub struct TransferResponse {
@@ -188,13 +188,19 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
     })
 }
 
-pub fn output_data(data: &Vec<Link>, del_links: bool) -> Option<()> {
+pub async fn output_data(delete_links: bool) -> Option<()> {
+    let data = DATABASE
+        .lock()
+        .await
+        .get_all_entries()
+        .expect("Failed to get data from database.");
+
     if data.is_empty() {
         println!("No entries found.");
         println!("Run \"transferhelper -h\" to see all available commands.\n");
         exit(0);
     }
-    transfer_table!(data, del_links);
+    transfer_table!(data, delete_links);
 
     Some(())
 }
