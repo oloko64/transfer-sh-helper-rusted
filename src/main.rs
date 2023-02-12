@@ -102,7 +102,8 @@ async fn run_app() {
     let args = ARGS.get().expect("Failed to get ARGS static variable.");
 
     match args {
-        AppOptions::List { delete_links } => execute_list(*delete_links),
+        AppOptions::List => execute_list(false),
+        AppOptions::ListDel => execute_list(true),
         AppOptions::Delete => execute_delete_by_id().await,
         AppOptions::Drop => execute_drop(),
         AppOptions::Transfer(path) => execute_transfer(path).await,

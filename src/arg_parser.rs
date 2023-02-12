@@ -26,7 +26,8 @@ pub struct Args {
 }
 
 pub enum AppOptions {
-    List { delete_links: bool },
+    List,
+    ListDel,
     Delete,
     Drop,
     Transfer(String),
@@ -37,9 +38,9 @@ impl AppOptions {
         let args = Args::parse();
 
         if args.list {
-            AppOptions::List {
-                delete_links: args.list_del,
-            }
+            AppOptions::List
+        } else if args.list_del {
+            AppOptions::ListDel
         } else if args.delete {
             AppOptions::Delete
         } else if args.drop {
@@ -47,9 +48,7 @@ impl AppOptions {
         } else if let Some(path) = args.upload_file {
             AppOptions::Transfer(path)
         } else {
-            AppOptions::List {
-                delete_links: false,
-            }
+            AppOptions::List
         }
     }
 }

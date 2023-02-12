@@ -188,7 +188,7 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
     })
 }
 
-pub fn output_data(delete_links: bool) -> usize {
+pub fn output_data(list_del: bool) -> usize {
     let data = DATABASE
         .try_lock()
         .expect("Failed to acquire lock of database.")
@@ -200,7 +200,7 @@ pub fn output_data(delete_links: bool) -> usize {
         println!("Run \"transferhelper -h\" to see all available commands.\n");
         exit(0);
     }
-    transfer_table!(&data, delete_links);
+    transfer_table!(&data, list_del);
 
     data.len()
 }
