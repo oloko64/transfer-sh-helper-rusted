@@ -14,8 +14,7 @@ use owo_colors::OwoColorize;
 use tokio::sync::Mutex;
 
 static DATABASE: Lazy<Mutex<Database>> = Lazy::new(|| {
-    let database = Database::new();
-    Mutex::new(database)
+    Mutex::new(Database::new())
 });
 
 static ARGS: OnceCell<AppOptions> = OnceCell::new();
