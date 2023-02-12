@@ -22,7 +22,7 @@ static ARGS: OnceCell<AppOptions> = OnceCell::new();
 
 async fn execute_delete_by_id() {
     println!();
-    if utils::output_data(false).await.is_none() {
+    if utils::output_data(false) == 0 {
         println!("No data to delete");
         exit(0);
     }
@@ -32,27 +32,26 @@ async fn execute_delete_by_id() {
     io::stdout().flush().unwrap();
     io::stdin().read_line(&mut id).expect("Failed to read line");
 
-    let database = DATABASE.lock().await;
+    let database = DATABASE.try_lock().unwrap();
     database
         .delete_entry(id.trim().parse::<i64>().expect("Failed to parse id"))
         .await;
 }
 
-async fn execute_list(delete_links: bool) {
+fn execute_list(delete_links: bool) {
     println!();
-    utils::output_data(delete_links).await;
+    utils::output_data(delete_links);
     println!();
 }
 
-async fn execute_drop() {
-    let database = DATABASE.lock().await;
+fn execute_drop() {
+    let database = DATABASE.try_lock().unwrap();
     database
         .delete_database_file()
         .expect("Failed to delete database file.");
 }
 
 async fn execute_transfer(path: &str) {
-    let database = DATABASE.lock().await;
     match utils::get_file_size(path) {
         Ok(size) => {
             println!("File size: {size}");
@@ -62,8 +61,9 @@ async fn execute_transfer(path: &str) {
             exit(1);
         }
     };
-    let default_name = path.split('/').last().unwrap_or("Default Name");
+
     {
+        let default_name = path.split('/').last().unwrap_or("Default Name");
         let mut entry_name = String::new();
         print!(
             "\nEnter the name of the entry (Default name: {}): ",
@@ -77,24 +77,26 @@ async fn execute_transfer(path: &str) {
             entry_name = default_name.to_string();
         }
         println!();
+        let database = DATABASE.try_lock().unwrap();
         database.transfer_file(entry_name.trim(), path).await;
     }
-    utils::output_data(false).await;
+
+    utils::output_data(false);
     println!();
 }
 
 async fn run_app() {
     {
-        let database = DATABASE.lock().await;
+        let database = DATABASE.try_lock().unwrap();
         database.create_table().expect("Failed to create table.");
     }
 
     let args = ARGS.get().expect("Failed to get ARGS static variable.");
 
     match args {
-        AppOptions::List { delete_links } => execute_list(*delete_links).await,
+        AppOptions::List { delete_links } => execute_list(*delete_links),
         AppOptions::Delete => execute_delete_by_id().await,
-        AppOptions::Drop => execute_drop().await,
+        AppOptions::Drop => execute_drop(),
         AppOptions::Transfer(path) => execute_transfer(path).await,
     }
 }

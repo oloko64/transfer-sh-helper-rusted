@@ -188,10 +188,10 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
     })
 }
 
-pub async fn output_data(delete_links: bool) -> Option<()> {
+pub fn output_data(delete_links: bool) -> usize {
     let data = DATABASE
-        .lock()
-        .await
+        .try_lock()
+        .unwrap()
         .get_all_entries()
         .expect("Failed to get data from database.");
 
@@ -200,9 +200,9 @@ pub async fn output_data(delete_links: bool) -> Option<()> {
         println!("Run \"transferhelper -h\" to see all available commands.\n");
         exit(0);
     }
-    transfer_table!(data, delete_links);
+    transfer_table!(&data, delete_links);
 
-    Some(())
+    data.len()
 }
 
 fn readable_date(unix_time: u64) -> String {
