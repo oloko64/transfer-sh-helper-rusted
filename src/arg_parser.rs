@@ -5,19 +5,19 @@ use clap::Parser;
 #[command(version)]
 pub struct Args {
     /// List all links on database
-    #[arg(short, long, action)]
+    #[arg(short, long)]
     pub list: bool,
 
     /// List all delete links on database
-    #[arg(long, short = 'L', action)]
+    #[arg(long, short = 'L')]
     pub list_del: bool,
 
     /// Deletes a entry locally as well as from Transfer.sh servers
-    #[arg(short, long, action)]
+    #[arg(short, long)]
     pub delete: bool,
 
     /// Delete the database from your system
-    #[arg(long, action)]
+    #[arg(long)]
     pub drop: bool,
 
     /// Upload a file to Transfer.sh servers
