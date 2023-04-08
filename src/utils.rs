@@ -1,4 +1,3 @@
-use anyhow::{bail, ensure, Result};
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use dirs::config_dir;
 use owo_colors::OwoColorize;
@@ -7,7 +6,7 @@ use reqwest::Response;
 use serde::{Deserialize, Serialize};
 use sqlite::Row;
 use std::{
-    fs::{self, create_dir_all, read_to_string, write},
+    fs::{create_dir_all, read_to_string, write},
     io::{self, Write},
     process::exit,
     time::{SystemTime, UNIX_EPOCH},
@@ -78,27 +77,29 @@ impl Link {
     }
 }
 
-pub fn get_file_size(path: &str) -> Result<String> {
-    ensure!(fs::metadata(path)?.is_file(), "Path is not a file.");
+pub async fn get_file_size(path: &str) -> Result<String, Box<dyn std::error::Error>> {
+    if !tokio::fs::metadata(path).await?.is_file() {
+        return Err("Path is not a file.".into());
+    }
 
-    let size = fs::metadata(path)?.len();
+    let size = tokio::fs::metadata(path).await?.len();
     let float_size = size as f64;
     let kb = f64::from(1024);
     let mb = f64::from(1024 * 1024);
     let gb = f64::from(1024 * 1024 * 1024);
 
     match size {
-        0 => bail!("File is empty"),
+        0 => Err("File is empty.".into()),
         1..=1023 => Ok(format!("{float_size}B")),
         1024..=1_048_575 => Ok(format!("{:.2}KB", float_size / kb)),
         1_048_576..=1_073_741_823 => Ok(format!("{:.2}MB", float_size / mb)),
         1_073_741_824..=1_610_612_735 => Ok(format!("{:.2}GB", float_size / gb)),
-        _ => bail!("File over the 1.5GB limit"),
+        _ => Err("File is over the 1.5GB limit.".into()),
     }
 }
 
-pub fn get_config() -> Result<Config> {
-    let config_path = config_app_folder() + "transfer-helper-config.json";
+pub fn get_config() -> Result<Config, Box<dyn std::error::Error>> {
+    let config_path = format!("{}transfer-helper-config.json", config_app_folder());
     let default_config = Config::new();
 
     Ok(if let Ok(config) = read_to_string(&config_path) {
@@ -114,11 +115,11 @@ pub fn get_config() -> Result<Config> {
     })
 }
 
-pub fn current_time() -> Result<u64> {
+pub fn current_time() -> Result<u64, Box<dyn std::error::Error>> {
     Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
 }
 
-pub fn create_config_app_folder() -> Result<()> {
+pub fn create_config_app_folder() -> Result<(), Box<dyn std::error::Error>> {
     create_dir_all(config_app_folder())?;
     Ok(())
 }
@@ -140,7 +141,7 @@ pub fn ask_confirmation(text: &str) -> bool {
     confirmation.trim().to_lowercase().starts_with('y')
 }
 
-pub async fn upload_file(file_path: &str) -> Result<TransferResponse> {
+pub async fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn std::error::Error>> {
     let file = tokio::fs::File::open(&file_path)
         .await
         .expect("Cannot open file.");

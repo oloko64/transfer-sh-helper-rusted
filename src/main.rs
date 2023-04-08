@@ -4,18 +4,18 @@ mod macros;
 mod utils;
 use std::{
     io::{self, Write},
+    path::Path,
     process::exit,
 };
 
 use arg_parser::AppOptions;
+use comprexor::Compressor;
 use database::Database;
 use once_cell::sync::{Lazy, OnceCell};
 use owo_colors::OwoColorize;
-use tokio::sync::Mutex;
+use tokio::{fs, sync::Mutex};
 
-static DATABASE: Lazy<Mutex<Database>> = Lazy::new(|| {
-    Mutex::new(Database::new())
-});
+static DATABASE: Lazy<Mutex<Database>> = Lazy::new(|| Mutex::new(Database::new()));
 
 static ARGS: OnceCell<AppOptions> = OnceCell::new();
 
@@ -54,11 +54,35 @@ fn execute_drop() {
         .expect("Failed to delete database file.");
 }
 
-async fn execute_transfer<T>(path: T)
+async fn execute_transfer<T>(path: T) -> Result<(), io::Error>
 where
     T: AsRef<str>,
 {
-    match utils::get_file_size(path.as_ref()) {
+    let path = if fs::metadata(path.as_ref()).await?.is_file() {
+        path.as_ref().to_owned()
+    } else if fs::metadata(path.as_ref()).await?.is_dir() {
+        println!("{} is a directory, compressing...", path.as_ref().green());
+
+        let compressed_path = format!("{}.tar.gz", path.as_ref());
+        let compressor = Compressor::new(path.as_ref(), &compressed_path);
+        let compress_info = compressor.compress()?;
+
+        println!(
+            "Compressed {} to {}",
+            path.as_ref().green(),
+            compressed_path.green()
+        );
+        println!(
+            "Compression ratio: {}",
+            compress_info.ratio_formatted(2).green()
+        );
+        compressed_path
+    } else {
+        eprintln!("{} is not a file or directory.", path.as_ref().red());
+        exit(1);
+    };
+
+    match utils::get_file_size(path.as_ref()).await {
         Ok(size) => {
             println!("File size: {size}");
         }
@@ -69,7 +93,11 @@ where
     };
 
     {
-        let default_name = path.as_ref().split('/').last().unwrap_or("Default Name");
+        let default_name = Path::new(&path)
+            .file_name()
+            .expect("Failed to get file name.")
+            .to_str()
+            .unwrap_or("Default Name");
         let mut entry_name = String::new();
         print!(
             "\nEnter the name of the entry (Default name: {}): ",
@@ -93,6 +121,8 @@ where
 
     utils::output_data(false);
     println!();
+
+    Ok(())
 }
 
 async fn run_app() {
@@ -109,7 +139,7 @@ async fn run_app() {
         AppOptions::List { list_del } => execute_list(*list_del),
         AppOptions::Delete => execute_delete_by_id().await,
         AppOptions::Drop => execute_drop(),
-        AppOptions::Transfer(path) => execute_transfer(path).await,
+        AppOptions::Transfer(path) => execute_transfer(path).await.unwrap(),
     }
 }
 
