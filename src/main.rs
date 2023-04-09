@@ -112,9 +112,9 @@ where
     let compressed_path = format!("{}.tar.gz", path.as_ref());
     let compressor = Compressor::new(path.as_ref(), &compressed_path);
     println!(
-        "Compressing {} with level {}...",
+        "Compressing {} with compression level {}...\n",
         path.as_ref().green(),
-        u32::from(compression_level)
+        u32::from(compression_level).green()
     );
     let compress_info = compressor.compress(compression_level)?;
 
