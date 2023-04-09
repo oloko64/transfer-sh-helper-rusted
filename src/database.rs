@@ -1,4 +1,3 @@
-use anyhow::Result;
 use sqlite::{open, Row};
 use std::{fs::remove_file, process::exit};
 
@@ -26,7 +25,7 @@ impl Database {
         }
     }
 
-    pub fn create_table(&self) -> Result<()> {
+    pub fn create_table(&self) -> Result<(), Box<dyn std::error::Error>> {
         self.connection.execute(
             "
             CREATE TABLE IF NOT EXISTS transfer_data (
@@ -41,7 +40,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_all_entries(&self) -> Result<Vec<Link>> {
+    pub fn get_all_entries(&self) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
         let cursor = self
             .connection
             .prepare("SELECT * FROM transfer_data")?
@@ -73,7 +72,12 @@ impl Database {
         });
     }
 
-    pub fn insert_entry(&self, name: &str, link: &str, delete_link: &str) -> Result<()> {
+    pub fn insert_entry(
+        &self,
+        name: &str,
+        link: &str,
+        delete_link: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let current_time = &current_time()
             .expect("Failed to get current time.")
             .to_string();
@@ -92,7 +96,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn delete_database_file(&self) -> Result<()> {
+    pub fn delete_database_file(&self) -> Result<(), Box<dyn std::error::Error>> {
         if !ask_confirmation("Are you sure you want to delete the database file?") {
             return Ok(());
         }
@@ -140,7 +144,10 @@ impl Database {
         };
     }
 
-    pub fn get_single_entry(&self, entry_id: i64) -> Result<Option<Link>> {
+    pub fn get_single_entry(
+        &self,
+        entry_id: i64,
+    ) -> Result<Option<Link>, Box<dyn std::error::Error>> {
         let cursor = self
             .connection
             .prepare("SELECT * FROM transfer_data WHERE id = ?")?

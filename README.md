@@ -37,6 +37,20 @@ This script has a few commands, you can use them in your terminal:
 transferhelper -u <file>
 ```
 
+### Compress a folder or file and upload it:
+
+By default it will compress with default compression level, which is 6.
+
+```bash
+transferhelper -c <file>
+```
+
+You can also define a compression level from 0-9, 0 is the fastest and 9 is the best compression.
+
+```bash
+transferhelper -c <file> --level <level>
+```
+
 ### View your stored links:
 
 ```bash

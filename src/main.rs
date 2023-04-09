@@ -4,18 +4,18 @@ mod macros;
 mod utils;
 use std::{
     io::{self, Write},
+    path::Path,
     process::exit,
 };
 
 use arg_parser::AppOptions;
+use comprexor::{CompressionLevel, Compressor};
 use database::Database;
 use once_cell::sync::{Lazy, OnceCell};
 use owo_colors::OwoColorize;
 use tokio::sync::Mutex;
 
-static DATABASE: Lazy<Mutex<Database>> = Lazy::new(|| {
-    Mutex::new(Database::new())
-});
+static DATABASE: Lazy<Mutex<Database>> = Lazy::new(|| Mutex::new(Database::new()));
 
 static ARGS: OnceCell<AppOptions> = OnceCell::new();
 
@@ -54,13 +54,13 @@ fn execute_drop() {
         .expect("Failed to delete database file.");
 }
 
-async fn execute_transfer<T>(path: T)
+async fn execute_transfer_file<T>(path: T) -> Result<(), io::Error>
 where
     T: AsRef<str>,
 {
-    match utils::get_file_size(path.as_ref()) {
+    match utils::get_file_size(path.as_ref()).await {
         Ok(size) => {
-            println!("File size: {size}");
+            println!("File size: {}", size.green());
         }
         Err(err) => {
             eprintln!("{err}");
@@ -69,16 +69,21 @@ where
     };
 
     {
-        let default_name = path.as_ref().split('/').last().unwrap_or("Default Name");
+        let default_name = Path::new(path.as_ref())
+            .file_name()
+            .ok_or(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to get file name",
+            ))?
+            .to_str()
+            .unwrap_or("default-name");
         let mut entry_name = String::new();
         print!(
             "\nEnter the name of the entry (Default name: {}): ",
             default_name.green()
         );
-        io::stdout().flush().unwrap();
-        io::stdin()
-            .read_line(&mut entry_name)
-            .expect("Failed to read line");
+        io::stdout().flush()?;
+        io::stdin().read_line(&mut entry_name)?;
         if entry_name.trim().is_empty() {
             entry_name = default_name.to_string();
         }
@@ -93,6 +98,78 @@ where
 
     utils::output_data(false);
     println!();
+
+    Ok(())
+}
+
+async fn execute_transfer_compressed<T>(
+    path: T,
+    compression_level: &CompressionLevel,
+) -> Result<(), io::Error>
+where
+    T: AsRef<str>,
+{
+    let compressed_path = format!("{}.tar.gz", path.as_ref());
+    let compressor = Compressor::new(path.as_ref(), &compressed_path);
+    println!(
+        "Compressing {} with compression level {}...\n",
+        path.as_ref().green(),
+        u32::from(compression_level).green()
+    );
+    let compress_info = compressor.compress(compression_level)?;
+
+    println!(
+        "Compressed {} to {}",
+        path.as_ref().green(),
+        compressed_path.green()
+    );
+    println!(
+        "Compression ratio: {}",
+        compress_info.ratio_formatted(2).green()
+    );
+
+    match utils::get_file_size(&compressed_path).await {
+        Ok(size) => {
+            println!("File size: {}", size.green());
+        }
+        Err(err) => {
+            eprintln!("{err}");
+            exit(1);
+        }
+    };
+
+    {
+        let default_name = Path::new(&compressed_path)
+            .file_name()
+            .ok_or(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to get file name",
+            ))?
+            .to_str()
+            .unwrap_or("default-name");
+        let mut entry_name = String::new();
+        print!(
+            "\nEnter the name of the entry (Default name: {}): ",
+            default_name.green()
+        );
+        io::stdout().flush()?;
+        io::stdin().read_line(&mut entry_name)?;
+        if entry_name.trim().is_empty() {
+            entry_name = default_name.to_string();
+        }
+        println!();
+        let database = DATABASE
+            .try_lock()
+            .expect("Failed to acquire lock of database.");
+        database
+            .transfer_file(entry_name.trim(), &compressed_path)
+            .await;
+    }
+
+    utils::output_data(false);
+    println!();
+
+    Ok(())
 }
 
 async fn run_app() {
@@ -109,7 +186,12 @@ async fn run_app() {
         AppOptions::List { list_del } => execute_list(*list_del),
         AppOptions::Delete => execute_delete_by_id().await,
         AppOptions::Drop => execute_drop(),
-        AppOptions::Transfer(path) => execute_transfer(path).await,
+        AppOptions::TransferFile(path) => execute_transfer_file(path).await.unwrap(),
+        AppOptions::TransferCompressed(path, compression_level) => {
+            execute_transfer_compressed(path, compression_level)
+                .await
+                .unwrap();
+        }
     }
 }
 
