@@ -190,8 +190,8 @@ dependencies = [
 
 [[package]]
 name = "comprexor"
-version = "0.1.2"
-source = "git+https://github.com/OLoKo64/comprexor#5dac5051707ab8efaf7be6ba023088d01199b0a3"
+version = "0.1.4"
+source = "git+https://github.com/OLoKo64/comprexor#bb2919d87185cacdf7ee4136935dd3629241955c"
 dependencies = [
  "flate2",
  "humansize",

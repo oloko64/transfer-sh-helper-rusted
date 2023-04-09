@@ -9,7 +9,7 @@ use std::{
 };
 
 use arg_parser::AppOptions;
-use comprexor::Compressor;
+use comprexor::{CompressionLevel, Compressor};
 use database::Database;
 use once_cell::sync::{Lazy, OnceCell};
 use owo_colors::OwoColorize;
@@ -54,7 +54,7 @@ fn execute_drop() {
         .expect("Failed to delete database file.");
 }
 
-async fn execute_transfer<T>(path: T) -> Result<(), io::Error>
+async fn execute_transfer_file<T>(path: T) -> Result<(), io::Error>
 where
     T: AsRef<str>,
 {
@@ -102,13 +102,21 @@ where
     Ok(())
 }
 
-async fn execute_transfer_compressed<T>(path: T) -> Result<(), io::Error>
+async fn execute_transfer_compressed<T>(
+    path: T,
+    compression_level: &CompressionLevel,
+) -> Result<(), io::Error>
 where
     T: AsRef<str>,
 {
     let compressed_path = format!("{}.tar.gz", path.as_ref());
     let compressor = Compressor::new(path.as_ref(), &compressed_path);
-    let compress_info = compressor.compress()?;
+    println!(
+        "Compressing {} with level {}...",
+        path.as_ref().green(),
+        u32::from(compression_level)
+    );
+    let compress_info = compressor.compress(compression_level)?;
 
     println!(
         "Compressed {} to {}",
@@ -178,8 +186,12 @@ async fn run_app() {
         AppOptions::List { list_del } => execute_list(*list_del),
         AppOptions::Delete => execute_delete_by_id().await,
         AppOptions::Drop => execute_drop(),
-        AppOptions::TransferFile(path) => execute_transfer(path).await.unwrap(),
-        AppOptions::TransferCompressed(path) => execute_transfer_compressed(path).await.unwrap(),
+        AppOptions::TransferFile(path) => execute_transfer_file(path).await.unwrap(),
+        AppOptions::TransferCompressed(path, compression_level) => {
+            execute_transfer_compressed(path, compression_level)
+                .await
+                .unwrap();
+        }
     }
 }
 

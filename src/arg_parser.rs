@@ -1,4 +1,5 @@
 use clap::Parser;
+use comprexor::CompressionLevel;
 
 /// A simple way to use Transfer.sh from the CLI.
 #[derive(Parser)]
@@ -21,12 +22,25 @@ pub struct Args {
     pub drop: bool,
 
     /// Compress a file or directory and upload it to Transfer.sh servers
-    #[arg(short, long, group = "upload_type")]
+    #[arg(short, long, group = "upload_type", group = "compress_type")]
     pub compress_upload: Option<String>,
+
+    /// Compress level to use when compressing a file or directory
+    #[arg(long, default_value = "6", requires = "compress_type", value_parser = validate_compression_level)]
+    pub level: CompressionLevel,
 
     /// Upload a file to Transfer.sh servers without compressing it
     #[arg(short, long, group = "upload_type", value_parser = validate_path)]
     pub upload_file: Option<String>,
+}
+
+fn validate_compression_level(level: &str) -> Result<CompressionLevel, String> {
+    match level.parse::<u32>() {
+        Ok(level) if (level <= 9) => Ok(CompressionLevel::Custom(level)),
+        _ => Err(format!(
+            "Invalid compression level: `{level}`, must be between 0 and 9"
+        )),
+    }
 }
 
 fn validate_path(path: &str) -> Result<String, String> {
@@ -42,7 +56,7 @@ pub enum AppOptions {
     Delete,
     Drop,
     TransferFile(String),
-    TransferCompressed(String),
+    TransferCompressed(String, CompressionLevel),
 }
 
 impl AppOptions {
@@ -60,7 +74,7 @@ impl AppOptions {
         } else if let Some(path) = args.upload_file {
             AppOptions::TransferFile(path)
         } else if let Some(path) = args.compress_upload {
-            AppOptions::TransferCompressed(path)
+            AppOptions::TransferCompressed(path, args.level)
         } else {
             AppOptions::List {
                 list_del: args.list_del,
