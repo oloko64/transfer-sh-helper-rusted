@@ -191,7 +191,8 @@ dependencies = [
 [[package]]
 name = "comprexor"
 version = "0.1.4"
-source = "git+https://github.com/OLoKo64/comprexor#bb2919d87185cacdf7ee4136935dd3629241955c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e387ec8656f2cb2e21d168477c817bfd6d564e7fa5d54b99863f1dfd1298b569"
 dependencies = [
  "flate2",
  "humansize",
