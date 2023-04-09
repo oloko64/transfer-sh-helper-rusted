@@ -34,7 +34,7 @@ This script has a few commands, you can use them in your terminal:
 ### Upload a file:
 
 ```bash
-transferhelper -u <file>
+transferhelper -f <file>
 ```
 
 ### Compress a folder or file and upload it:

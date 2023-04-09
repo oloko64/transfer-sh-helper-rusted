@@ -31,7 +31,7 @@ pub struct Args {
 
     /// Upload a file to Transfer.sh servers without compressing it
     #[arg(short, long, group = "upload_type", value_parser = validate_path)]
-    pub upload_file: Option<String>,
+    pub file_upload: Option<String>,
 }
 
 fn validate_compression_level(level: &str) -> Result<CompressionLevel, String> {
@@ -71,7 +71,7 @@ impl AppOptions {
             AppOptions::Delete
         } else if args.drop {
             AppOptions::Drop
-        } else if let Some(path) = args.upload_file {
+        } else if let Some(path) = args.file_upload {
             AppOptions::TransferFile(path)
         } else if let Some(path) = args.compress_upload {
             AppOptions::TransferCompressed(path, args.level)
