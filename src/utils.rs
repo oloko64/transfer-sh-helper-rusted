@@ -79,7 +79,10 @@ impl Link {
 
 pub async fn get_file_size(path: &str) -> Result<String, Box<dyn std::error::Error>> {
     if !tokio::fs::metadata(path).await?.is_file() {
-        return Err("Path is not a file.".into());
+        return Err(
+            "Path is not a file. You can use the compress mode `-c <path>` to upload a folder"
+                .into(),
+        );
     }
 
     let size = tokio::fs::metadata(path).await?.len();
@@ -89,12 +92,12 @@ pub async fn get_file_size(path: &str) -> Result<String, Box<dyn std::error::Err
     let gb = f64::from(1024 * 1024 * 1024);
 
     match size {
-        0 => Err("File is empty.".into()),
-        1..=1023 => Ok(format!("{float_size}B")),
-        1024..=1_048_575 => Ok(format!("{:.2}KB", float_size / kb)),
-        1_048_576..=1_073_741_823 => Ok(format!("{:.2}MB", float_size / mb)),
-        1_073_741_824..=1_610_612_735 => Ok(format!("{:.2}GB", float_size / gb)),
-        _ => Err("File is over the 1.5GB limit.".into()),
+        0 => Err("File is empty".into()),
+        1..=1023 => Ok(format!("{float_size} B")),
+        1024..=1_048_575 => Ok(format!("{:.2} KB", float_size / kb)),
+        1_048_576..=1_073_741_823 => Ok(format!("{:.2} MB", float_size / mb)),
+        1_073_741_824..=1_610_612_735 => Ok(format!("{:.2} GB", float_size / gb)),
+        _ => Err("File is over the 1.5GB limit".into()),
     }
 }
 

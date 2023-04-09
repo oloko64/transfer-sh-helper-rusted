@@ -20,8 +20,12 @@ pub struct Args {
     #[arg(long)]
     pub drop: bool,
 
-    /// Upload a file to Transfer.sh servers
-    #[arg(short, long, value_parser = validate_path)]
+    /// Compress a file or directory and upload it to Transfer.sh servers
+    #[arg(short, long, group = "upload_type")]
+    pub compress_upload: Option<String>,
+
+    /// Upload a file to Transfer.sh servers without compressing it
+    #[arg(short, long, group = "upload_type", value_parser = validate_path)]
     pub upload_file: Option<String>,
 }
 
@@ -29,7 +33,7 @@ fn validate_path(path: &str) -> Result<String, String> {
     if std::path::Path::new(path).exists() {
         Ok(path.to_string())
     } else {
-        Err(format!(r#"Provided path does not exist: "{path}""#))
+        Err(format!("Provided path does not exist: `{path}`"))
     }
 }
 
@@ -37,7 +41,8 @@ pub enum AppOptions {
     List { list_del: bool },
     Delete,
     Drop,
-    Transfer(String),
+    TransferFile(String),
+    TransferCompressed(String),
 }
 
 impl AppOptions {
@@ -53,7 +58,9 @@ impl AppOptions {
         } else if args.drop {
             AppOptions::Drop
         } else if let Some(path) = args.upload_file {
-            AppOptions::Transfer(path)
+            AppOptions::TransferFile(path)
+        } else if let Some(path) = args.compress_upload {
+            AppOptions::TransferCompressed(path)
         } else {
             AppOptions::List {
                 list_del: args.list_del,

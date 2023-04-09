@@ -13,7 +13,7 @@ use comprexor::Compressor;
 use database::Database;
 use once_cell::sync::{Lazy, OnceCell};
 use owo_colors::OwoColorize;
-use tokio::{fs, sync::Mutex};
+use tokio::sync::Mutex;
 
 static DATABASE: Lazy<Mutex<Database>> = Lazy::new(|| Mutex::new(Database::new()));
 
@@ -58,33 +58,9 @@ async fn execute_transfer<T>(path: T) -> Result<(), io::Error>
 where
     T: AsRef<str>,
 {
-    let path = if fs::metadata(path.as_ref()).await?.is_file() {
-        path.as_ref().to_owned()
-    } else if fs::metadata(path.as_ref()).await?.is_dir() {
-        println!("{} is a directory, compressing...", path.as_ref().green());
-
-        let compressed_path = format!("{}.tar.gz", path.as_ref());
-        let compressor = Compressor::new(path.as_ref(), &compressed_path);
-        let compress_info = compressor.compress()?;
-
-        println!(
-            "Compressed {} to {}",
-            path.as_ref().green(),
-            compressed_path.green()
-        );
-        println!(
-            "Compression ratio: {}",
-            compress_info.ratio_formatted(2).green()
-        );
-        compressed_path
-    } else {
-        eprintln!("{} is not a file or directory.", path.as_ref().red());
-        exit(1);
-    };
-
     match utils::get_file_size(path.as_ref()).await {
         Ok(size) => {
-            println!("File size: {size}");
+            println!("File size: {}", size.green());
         }
         Err(err) => {
             eprintln!("{err}");
@@ -93,20 +69,21 @@ where
     };
 
     {
-        let default_name = Path::new(&path)
+        let default_name = Path::new(path.as_ref())
             .file_name()
-            .expect("Failed to get file name.")
+            .ok_or(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to get file name",
+            ))?
             .to_str()
-            .unwrap_or("Default Name");
+            .unwrap_or("default-name");
         let mut entry_name = String::new();
         print!(
             "\nEnter the name of the entry (Default name: {}): ",
             default_name.green()
         );
-        io::stdout().flush().unwrap();
-        io::stdin()
-            .read_line(&mut entry_name)
-            .expect("Failed to read line");
+        io::stdout().flush()?;
+        io::stdin().read_line(&mut entry_name)?;
         if entry_name.trim().is_empty() {
             entry_name = default_name.to_string();
         }
@@ -116,6 +93,68 @@ where
             .expect("Failed to acquire lock of database.");
         database
             .transfer_file(entry_name.trim(), path.as_ref())
+            .await;
+    }
+
+    utils::output_data(false);
+    println!();
+
+    Ok(())
+}
+
+async fn execute_transfer_compressed<T>(path: T) -> Result<(), io::Error>
+where
+    T: AsRef<str>,
+{
+    let compressed_path = format!("{}.tar.gz", path.as_ref());
+    let compressor = Compressor::new(path.as_ref(), &compressed_path);
+    let compress_info = compressor.compress()?;
+
+    println!(
+        "Compressed {} to {}",
+        path.as_ref().green(),
+        compressed_path.green()
+    );
+    println!(
+        "Compression ratio: {}",
+        compress_info.ratio_formatted(2).green()
+    );
+
+    match utils::get_file_size(&compressed_path).await {
+        Ok(size) => {
+            println!("File size: {}", size.green());
+        }
+        Err(err) => {
+            eprintln!("{err}");
+            exit(1);
+        }
+    };
+
+    {
+        let default_name = Path::new(&compressed_path)
+            .file_name()
+            .ok_or(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to get file name",
+            ))?
+            .to_str()
+            .unwrap_or("default-name");
+        let mut entry_name = String::new();
+        print!(
+            "\nEnter the name of the entry (Default name: {}): ",
+            default_name.green()
+        );
+        io::stdout().flush()?;
+        io::stdin().read_line(&mut entry_name)?;
+        if entry_name.trim().is_empty() {
+            entry_name = default_name.to_string();
+        }
+        println!();
+        let database = DATABASE
+            .try_lock()
+            .expect("Failed to acquire lock of database.");
+        database
+            .transfer_file(entry_name.trim(), &compressed_path)
             .await;
     }
 
@@ -139,7 +178,8 @@ async fn run_app() {
         AppOptions::List { list_del } => execute_list(*list_del),
         AppOptions::Delete => execute_delete_by_id().await,
         AppOptions::Drop => execute_drop(),
-        AppOptions::Transfer(path) => execute_transfer(path).await.unwrap(),
+        AppOptions::TransferFile(path) => execute_transfer(path).await.unwrap(),
+        AppOptions::TransferCompressed(path) => execute_transfer_compressed(path).await.unwrap(),
     }
 }
 
