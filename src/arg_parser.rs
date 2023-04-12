@@ -1,37 +1,43 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use comprexor::CompressionLevel;
 
 /// A simple way to use Transfer.sh from the CLI.
 #[derive(Parser)]
 #[command(version)]
-pub struct Args {
-    /// List all links on database
-    #[arg(short, long)]
-    pub list: bool,
+pub struct AppArguments {
+    #[command(subcommand)]
+    pub app_subcommands: Option<AppOptions>,
+}
 
-    /// List all delete links on database
-    #[arg(long, short = 'L')]
-    pub list_del: bool,
+#[derive(Subcommand)]
+pub enum AppOptions {
+    /// List all uploaded files
+    List {
+        /// Show delete links
+        #[arg(short, long)]
+        delete_link: bool,
+    },
 
-    /// Deletes a entry locally as well as from Transfer.sh servers
-    #[arg(short, long)]
-    pub delete: bool,
+    /// Delete a file by id, deleting the file from Transfer.sh servers and the local database
+    Delete,
 
-    /// Delete the database from your system
-    #[arg(long)]
-    pub drop: bool,
+    /// Delete the local database but not the files on Transfer.sh servers
+    Drop,
 
-    /// Compress a file or directory and upload it to Transfer.sh servers
-    #[arg(short, long, group = "upload_type", group = "compress_type")]
-    pub compress_upload: Option<String>,
+    /// Upload files to Transfer.sh servers
+    Upload {
+        /// Upload a file to Transfer.sh servers
+        #[arg(short, long, value_parser = validate_path)]
+        path: String,
 
-    /// Compress level to use when compressing a file or directory
-    #[arg(long, default_value = "6", requires = "compress_type", value_parser = validate_compression_level)]
-    pub level: CompressionLevel,
+        /// Compress a file or directory and upload it to Transfer.sh servers
+        #[arg(short, long, group = "compress_flag")]
+        compress: bool,
 
-    /// Upload a file to Transfer.sh servers without compressing it
-    #[arg(short, long, group = "upload_type", value_parser = validate_path)]
-    pub file_upload: Option<String>,
+        /// Compress level to use when compressing a file or directory
+        #[arg(short, long, default_value = "6", requires = "compress_flag", value_parser = validate_compression_level)]
+        level: CompressionLevel,
+    },
 }
 
 fn validate_compression_level(level: &str) -> Result<CompressionLevel, String> {
@@ -48,37 +54,5 @@ fn validate_path(path: &str) -> Result<String, String> {
         Ok(path.to_string())
     } else {
         Err(format!("Provided path does not exist: `{path}`"))
-    }
-}
-
-pub enum AppOptions {
-    List { list_del: bool },
-    Delete,
-    Drop,
-    TransferFile(String),
-    TransferCompressed(String, CompressionLevel),
-}
-
-impl AppOptions {
-    pub fn init() -> AppOptions {
-        let args = Args::parse();
-
-        if args.list {
-            AppOptions::List {
-                list_del: args.list_del,
-            }
-        } else if args.delete {
-            AppOptions::Delete
-        } else if args.drop {
-            AppOptions::Drop
-        } else if let Some(path) = args.file_upload {
-            AppOptions::TransferFile(path)
-        } else if let Some(path) = args.compress_upload {
-            AppOptions::TransferCompressed(path, args.level)
-        } else {
-            AppOptions::List {
-                list_del: args.list_del,
-            }
-        }
     }
 }
