@@ -10,7 +10,7 @@ macro_rules! transfer_table {
                         c->entry.id,
                         entry.name,
                         entry.delete_link,
-                        c->readable_date(entry.unix_time),
+                        c->readable_date(entry.unix_time)?,
                         cFg->entry.is_available
                     ]);
                 } else {
@@ -18,7 +18,7 @@ macro_rules! transfer_table {
                         c->entry.id,
                         entry.name,
                         entry.delete_link,
-                        c->readable_date(entry.unix_time),
+                        c->readable_date(entry.unix_time)?,
                         cFr->entry.is_available
                     ]);
                 }
@@ -31,7 +31,7 @@ macro_rules! transfer_table {
                         c->entry.id,
                         entry.name,
                         entry.link,
-                        c->readable_date(entry.unix_time),
+                        c->readable_date(entry.unix_time)?,
                         cFg->entry.is_available
                     ]);
                 } else {
@@ -39,7 +39,7 @@ macro_rules! transfer_table {
                         c->entry.id,
                         entry.name,
                         entry.link,
-                        c->readable_date(entry.unix_time),
+                        c->readable_date(entry.unix_time)?,
                         cFr->entry.is_available
                     ]);
                 }

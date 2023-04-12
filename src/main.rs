@@ -8,53 +8,50 @@ use std::{
     process::exit,
 };
 
-use arg_parser::AppOptions;
+use arg_parser::{AppArguments, AppOptions};
+use clap::Parser;
 use comprexor::{CompressionLevel, Compressor};
 use database::Database;
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::Lazy;
 use owo_colors::OwoColorize;
 use tokio::sync::Mutex;
 
-static DATABASE: Lazy<Mutex<Database>> = Lazy::new(|| Mutex::new(Database::new()));
+static DATABASE: Lazy<Mutex<Database>> = Lazy::new(|| Mutex::new(Database::new().unwrap()));
 
-static ARGS: OnceCell<AppOptions> = OnceCell::new();
-
-async fn execute_delete_by_id() {
+async fn execute_delete_by_id() -> Result<(), Box<dyn std::error::Error>> {
     println!();
-    if utils::output_data(false) == 0 {
+    if utils::output_data(false)? == 0 {
         println!("No data to delete");
         exit(0);
     }
     println!();
     let mut id = String::new();
     print!("Enter the id of the entry you want to remove: ");
-    io::stdout().flush().unwrap();
-    io::stdin().read_line(&mut id).expect("Failed to read line");
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut id)?;
 
-    let database = DATABASE
-        .try_lock()
-        .expect("Failed to acquire lock of database.");
-    database
-        .delete_entry(id.trim().parse::<i64>().expect("Failed to parse id"))
-        .await;
+    let database = DATABASE.try_lock()?;
+    database.delete_entry(id.trim().parse::<i64>()?).await?;
+
+    Ok(())
 }
 
-fn execute_list(delete_links: bool) {
+fn execute_list(delete_links: bool) -> Result<(), Box<dyn std::error::Error>> {
     println!();
-    utils::output_data(delete_links);
+    utils::output_data(delete_links)?;
     println!();
+
+    Ok(())
 }
 
-fn execute_drop() {
-    let database = DATABASE
-        .try_lock()
-        .expect("Failed to acquire lock of database.");
-    database
-        .delete_database_file()
-        .expect("Failed to delete database file.");
+fn execute_drop() -> Result<(), Box<dyn std::error::Error>> {
+    let database = DATABASE.try_lock()?;
+    database.delete_database_file()?;
+
+    Ok(())
 }
 
-async fn execute_transfer_file<T>(path: T) -> Result<(), io::Error>
+async fn execute_transfer_file<T>(path: T) -> Result<(), Box<dyn std::error::Error>>
 where
     T: AsRef<str>,
 {
@@ -63,8 +60,7 @@ where
             println!("File size: {}", size.green());
         }
         Err(err) => {
-            eprintln!("{err}");
-            exit(1);
+            return Err(err);
         }
     };
 
@@ -88,15 +84,13 @@ where
             entry_name = default_name.to_string();
         }
         println!();
-        let database = DATABASE
-            .try_lock()
-            .expect("Failed to acquire lock of database.");
+        let database = DATABASE.try_lock()?;
         database
             .transfer_file(entry_name.trim(), path.as_ref())
-            .await;
+            .await?;
     }
 
-    utils::output_data(false);
+    utils::output_data(false)?;
     println!();
 
     Ok(())
@@ -105,7 +99,7 @@ where
 async fn execute_transfer_compressed<T>(
     path: T,
     compression_level: &CompressionLevel,
-) -> Result<(), io::Error>
+) -> Result<(), Box<dyn std::error::Error>>
 where
     T: AsRef<str>,
 {
@@ -158,48 +152,53 @@ where
             entry_name = default_name.to_string();
         }
         println!();
-        let database = DATABASE
-            .try_lock()
-            .expect("Failed to acquire lock of database.");
+        let database = DATABASE.try_lock()?;
         database
             .transfer_file(entry_name.trim(), &compressed_path)
-            .await;
+            .await?;
     }
 
-    utils::output_data(false);
+    utils::output_data(false)?;
     println!();
 
     Ok(())
 }
 
-async fn run_app() {
+async fn run_app(args: AppArguments) -> Result<(), Box<dyn std::error::Error>> {
     {
-        let database = DATABASE
-            .try_lock()
-            .expect("Failed to acquire lock of database.");
-        database.create_table().expect("Failed to create table.");
+        let database = DATABASE.try_lock()?;
+        database.create_table()?;
     }
+    let Some(subcommands) = args.app_subcommands else {
+        execute_list(false)?;
+        exit(0);
+    };
 
-    let args = ARGS.get().expect("Failed to get ARGS static variable.");
-
-    match args {
-        AppOptions::List { list_del } => execute_list(*list_del),
-        AppOptions::Delete => execute_delete_by_id().await,
-        AppOptions::Drop => execute_drop(),
-        AppOptions::TransferFile(path) => execute_transfer_file(path).await.unwrap(),
-        AppOptions::TransferCompressed(path, compression_level) => {
-            execute_transfer_compressed(path, compression_level)
-                .await
-                .unwrap();
+    match subcommands {
+        AppOptions::List { delete_link } => execute_list(delete_link)?,
+        AppOptions::Delete => execute_delete_by_id().await?,
+        AppOptions::Drop => execute_drop()?,
+        AppOptions::Upload {
+            path,
+            compress,
+            level,
+        } => {
+            if compress {
+                execute_transfer_compressed(path, &level).await?;
+            } else {
+                execute_transfer_file(path).await?;
+            }
         }
     }
+
+    Ok(())
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() {
-    let Ok(_) = ARGS.set(AppOptions::init()) else {
-        panic!("Failed to set ARGS static variable.")
-    };
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = arg_parser::AppArguments::parse();
 
-    run_app().await;
+    run_app(args).await?;
+
+    Ok(())
 }

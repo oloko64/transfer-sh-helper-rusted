@@ -9,7 +9,7 @@ use std::{
     fs::{create_dir_all, read_to_string, write},
     io::{self, Write},
     process::exit,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{SystemTime, SystemTimeError, UNIX_EPOCH},
 };
 use tokio_stream::StreamExt;
 use tokio_util::io::ReaderStream;
@@ -50,26 +50,19 @@ pub struct Link {
 }
 
 impl Link {
-    pub fn new(row: &Row) -> Link {
-        Link {
+    pub fn new(row: &Row) -> Result<Link, Box<dyn std::error::Error>> {
+        Ok(Link {
             id: row.read::<i64, _>("id"),
             name: row.read::<&str, _>("name").to_owned(),
             link: row.read::<&str, _>("link").to_owned(),
             delete_link: row.read::<&str, _>("deleteLink").to_owned(),
-            unix_time: row
-                .read::<i64, _>("unixTime")
-                .try_into()
-                .expect("unixTime cannot be converted to u64"),
-            is_available: Link::is_link_available(
-                row.read::<i64, _>("unixTime")
-                    .try_into()
-                    .expect("unixTime cannot be converted to u64"),
-            ),
-        }
+            unix_time: row.read::<i64, _>("unixTime").try_into()?,
+            is_available: Link::is_link_available(row.read::<i64, _>("unixTime").try_into()?)?,
+        })
     }
 
-    fn is_link_available(upload_time: u64) -> bool {
-        current_time().expect("Failed to get current time.") - upload_time < UNIX_WEEK
+    fn is_link_available(upload_time: u64) -> Result<bool, SystemTimeError> {
+        Ok(current_time()? - upload_time < UNIX_WEEK)
     }
 
     pub fn get_delete_link(&self) -> &str {
@@ -118,11 +111,11 @@ pub fn get_config() -> Result<Config, Box<dyn std::error::Error>> {
     })
 }
 
-pub fn current_time() -> Result<u64, Box<dyn std::error::Error>> {
+pub fn current_time() -> Result<u64, SystemTimeError> {
     Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
 }
 
-pub fn create_config_app_folder() -> Result<(), Box<dyn std::error::Error>> {
+pub fn create_config_app_folder() -> Result<(), io::Error> {
     create_dir_all(config_app_folder())?;
     Ok(())
 }
@@ -135,24 +128,18 @@ pub fn config_app_folder() -> String {
     config_path + "/transfer-sh-helper/"
 }
 
-pub fn ask_confirmation(text: &str) -> bool {
+pub fn ask_confirmation(text: &str) -> Result<bool, io::Error> {
     let mut confirmation = String::new();
     print!("\n{} (y/N): ", text.yellow());
-    io::stdout().flush().unwrap();
-    io::stdin().read_line(&mut confirmation).unwrap();
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut confirmation)?;
     println!();
-    confirmation.trim().to_lowercase().starts_with('y')
+    Ok(confirmation.trim().to_lowercase().starts_with('y'))
 }
 
 pub async fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn std::error::Error>> {
-    let file = tokio::fs::File::open(&file_path)
-        .await
-        .expect("Cannot open file.");
-    let total_size = file
-        .metadata()
-        .await
-        .expect("Cannot determine input file size")
-        .len();
+    let file = tokio::fs::File::open(&file_path).await?;
+    let total_size = file.metadata().await?.len();
     let mut reader_stream = ReaderStream::new(file);
     let mut total_uploaded = 0_f64;
 
@@ -162,7 +149,7 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn st
                 total_uploaded += chunk.len() as f64;
                 let progress = (total_uploaded / total_size as f64) * 100.0;
                 print!("\rUploading... {:.2}%", progress.green());
-                io::stdout().flush().unwrap();
+                io::stdout().flush()?;
             }
             yield chunk;
         }
@@ -171,7 +158,10 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn st
     let response = reqwest::Client::new()
         .put(&format!(
             "https://transfer.sh/{}",
-            file_path.split('/').last().expect("Cannot get file name.")
+            file_path
+                .split('/')
+                .last()
+                .ok_or("Failed to get file name.")?
         ))
         .body(reqwest::Body::wrap_stream(async_stream))
         .send()
@@ -182,7 +172,7 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn st
     let delete_link = response
         .headers()
         .get("x-url-delete")
-        .expect("No delete link found.")
+        .ok_or("No delete link found.")?
         .to_str()?
         .to_owned();
 
@@ -192,12 +182,8 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn st
     })
 }
 
-pub fn output_data(list_del: bool) -> usize {
-    let data = DATABASE
-        .try_lock()
-        .expect("Failed to acquire lock of database.")
-        .get_all_entries()
-        .expect("Failed to get data from database.");
+pub fn output_data(list_del: bool) -> Result<usize, Box<dyn std::error::Error>> {
+    let data = DATABASE.try_lock()?.get_all_entries()?;
 
     if data.is_empty() {
         println!("No entries found.");
@@ -206,21 +192,16 @@ pub fn output_data(list_del: bool) -> usize {
     }
     transfer_table!(&data, list_del);
 
-    data.len()
+    Ok(data.len())
 }
 
-fn readable_date(unix_time: u64) -> String {
+fn readable_date(unix_time: u64) -> Result<String, Box<dyn std::error::Error>> {
     let date = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp_opt(
-            (unix_time + UNIX_WEEK)
-                .try_into()
-                .expect("Failed to convert u64 to i64"),
-            0,
-        )
-        .expect("Invalid date"),
+        NaiveDateTime::from_timestamp_opt((unix_time + UNIX_WEEK).try_into()?, 0)
+            .ok_or("Invalid date")?,
         Utc,
     );
-    date.format("%d-%m-%Y").to_string()
+    Ok(date.format("%d-%m-%Y").to_string())
 }
 
 pub async fn delete_entry_server(delete_link: &str) -> Result<Response, reqwest::Error> {

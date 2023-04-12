@@ -9,7 +9,7 @@ The idea of the script is to store your transfer.sh links and simplify its usage
 - Automatically calculates expired links.
 - Option to easily delete the file from their servers.
 
-https://user-images.githubusercontent.com/49915167/230776909-74150bb8-d649-4a16-8721-75e930533bbb.mp4
+https://user-images.githubusercontent.com/49915167/231606008-87d5d59b-1db3-4427-b93e-e682a200e9d8.mp4
 
 ## THIS SCRIPT IS NOT OFFICIAL.
 
@@ -34,7 +34,7 @@ This script has a few commands, you can use them in your terminal:
 ### Upload a file:
 
 ```bash
-transferhelper -f <file>
+transferhelper upload -p <file>
 ```
 
 ### Compress a folder or file and upload it:
@@ -42,31 +42,31 @@ transferhelper -f <file>
 By default it will compress with default compression level, which is 6.
 
 ```bash
-transferhelper -c <file>
+transferhelper upload -p <file> -c
 ```
 
 You can also define a compression level from 0-9, 0 is the fastest and 9 is the best compression.
 
 ```bash
-transferhelper -c <file> --level <level>
+transferhelper upload -p <file-or-folder> -c -l 9
 ```
 
 ### View your stored links:
 
 ```bash
-transferhelper -l
+transferhelper list
 ```
 
 ### View your stored delete links:
 
 ```bash
-transferhelper -L
+transferhelper list -d
 ```
 
 ### Delete a link:
 
 ```bash
-transferhelper -d
+transferhelper delete
 ```
 
 After running this command it will ask you for the link you want to delete and if you want to delete from the cloud as well.
@@ -74,7 +74,7 @@ After running this command it will ask you for the link you want to delete and i
 ### Delete the database:
 
 ```bash
-transferhelper --drop
+transferhelper drop
 ```
 
 After running this command it will ask for confirmation.
@@ -95,7 +95,7 @@ transferhelper -h
 
 3. Inside the cloned folder run:
 ```bash
-cargo install
+cargo install --path .
 ```
 ## Thats it
 
@@ -105,6 +105,6 @@ Now you can use the program from your terminal.
 transferhelper -h
 ```
 
-### If you don't want to compile the program
+## License
 
-You can download the [latest release](https://github.com/OLoKo64/transfer-sh-helper-rusted/releases), I already compiled it for you.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
