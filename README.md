@@ -5,7 +5,8 @@ The idea of the script is to store your transfer.sh links and simplify its usage
 ## Features
 
 - Store your Transfer.sh links in a sqlite3 file locally.
-- Simplify the transfer.sh usage.
+- Easily compress files and folders before uploading them.
+- Simplify the transfer.sh usage via CLI.
 - Automatically calculates expired links.
 - Option to easily delete the file from their servers.
 
