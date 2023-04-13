@@ -35,7 +35,7 @@ This script has a few commands, you can use them in your terminal:
 ### Upload a file:
 
 ```bash
-transferhelper upload -p <file>
+transferhelper upload <file>
 ```
 
 ### Compress a folder or file and upload it:
@@ -43,13 +43,13 @@ transferhelper upload -p <file>
 By default it will compress with default compression level, which is 6.
 
 ```bash
-transferhelper upload -p <file> -c
+transferhelper upload <file> -c
 ```
 
 You can also define a compression level from 0-9, 0 is the fastest and 9 is the best compression.
 
 ```bash
-transferhelper upload -p <file-or-folder> -c -l 9
+transferhelper upload <file_or_folder> -c -l 9
 ```
 
 ### View your stored links:

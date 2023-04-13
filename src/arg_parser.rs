@@ -26,15 +26,15 @@ pub enum AppOptions {
 
     /// Upload files to Transfer.sh servers
     Upload {
-        /// Upload a file to Transfer.sh servers
-        #[arg(short, long, value_parser = validate_path)]
+        /// Path of the file to be uploaded
+        #[arg(value_parser = validate_path)]
         path: String,
 
-        /// Compress a file or directory and upload it to Transfer.sh servers
+        /// Compress the file or directory before uploading
         #[arg(short, long, group = "compress_flag")]
         compress: bool,
 
-        /// Compress level to use when compressing a file or directory
+        /// Compression level to be used, must be between 0 and 9
         #[arg(short, long, default_value = "6", requires = "compress_flag", value_parser = validate_compression_level)]
         level: CompressionLevel,
     },
