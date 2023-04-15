@@ -8,6 +8,7 @@ use sqlite::Row;
 use std::{
     fs::{create_dir_all, read_to_string, write},
     io::{self, Write},
+    path::PathBuf,
     process::exit,
     time::{SystemTime, SystemTimeError, UNIX_EPOCH},
 };
@@ -95,7 +96,7 @@ pub async fn get_file_size(path: &str) -> Result<String, Box<dyn std::error::Err
 }
 
 pub fn get_config() -> Result<Config, Box<dyn std::error::Error>> {
-    let config_path = format!("{}transfer-helper-config.json", config_app_folder());
+    let config_path = config_app_folder()?.join("transfer-helper-config.json");
     let default_config = Config::new();
 
     Ok(if let Ok(config) = read_to_string(&config_path) {
@@ -116,16 +117,16 @@ pub fn current_time() -> Result<u64, SystemTimeError> {
 }
 
 pub fn create_config_app_folder() -> Result<(), io::Error> {
-    create_dir_all(config_app_folder())?;
+    create_dir_all(config_app_folder()?)?;
     Ok(())
 }
 
-pub fn config_app_folder() -> String {
-    let config_path = match config_dir() {
-        Some(path) => path.display().to_string(),
-        None => panic!("Could not get config directory"),
-    };
-    config_path + "/transfer-sh-helper/"
+pub fn config_app_folder() -> Result<PathBuf, io::Error> {
+    let config_path = config_dir().ok_or(io::Error::new(
+        io::ErrorKind::NotFound,
+        "Config directory not found",
+    ))?;
+    Ok(config_path.join("transfer-sh-helper"))
 }
 
 pub fn ask_confirmation(text: &str) -> Result<bool, io::Error> {
@@ -161,7 +162,7 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn st
             file_path
                 .split('/')
                 .last()
-                .ok_or("Failed to get file name.")?
+                .ok_or("Failed to get file name from upload URL.")?
         ))
         .body(reqwest::Body::wrap_stream(async_stream))
         .send()
@@ -187,7 +188,7 @@ pub fn output_data(list_del: bool) -> Result<usize, Box<dyn std::error::Error>> 
 
     if data.is_empty() {
         println!("No entries found.");
-        println!("Run \"transferhelper -h\" to see all available commands.\n");
+        println!("Run `transferhelper -h` to see all available commands.\n");
         exit(0);
     }
     transfer_table!(&data, list_del);
