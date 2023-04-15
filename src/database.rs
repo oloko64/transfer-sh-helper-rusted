@@ -1,5 +1,5 @@
 use sqlite::{open, Row};
-use std::{fs::remove_file, io};
+use std::{fs::remove_file, io, path::PathBuf};
 
 use crate::utils::{
     ask_confirmation, config_app_folder, create_config_app_folder, current_time,
@@ -8,7 +8,7 @@ use crate::utils::{
 
 pub struct Database {
     connection: sqlite::Connection,
-    database_path: String,
+    database_path: PathBuf,
 }
 
 impl Database {
@@ -18,7 +18,7 @@ impl Database {
         let binding = get_config()?;
         let database_file = binding.get_database_file();
 
-        let database_path = config_app_folder() + database_file;
+        let database_path = config_app_folder()?.join(database_file);
         Ok(Database {
             connection: open(&database_path)?,
             database_path,
