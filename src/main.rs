@@ -14,11 +14,14 @@ use comprexor::{CompressionLevel, Compressor};
 use database::Database;
 use once_cell::sync::Lazy;
 use owo_colors::OwoColorize;
+use reqwest::StatusCode;
 use tokio::sync::Mutex;
+use utils::transfer_response_code;
 
 static DATABASE: Lazy<Mutex<Database>> = Lazy::new(|| Mutex::new(Database::new().unwrap()));
 
 async fn execute_delete_by_id() -> Result<(), Box<dyn std::error::Error>> {
+    verify_transfer_connection().await;
     println!();
     if utils::output_data(false)? == 0 {
         println!("No data to delete");
@@ -63,6 +66,8 @@ where
             return Err(err);
         }
     };
+
+    verify_transfer_connection().await;
 
     {
         let default_name = Path::new(path.as_ref())
@@ -132,6 +137,8 @@ where
         }
     };
 
+    verify_transfer_connection().await;
+
     {
         let default_name = Path::new(&compressed_path)
             .file_name()
@@ -162,6 +169,20 @@ where
     println!();
 
     Ok(())
+}
+
+async fn verify_transfer_connection() {
+    match transfer_response_code().await {
+        Ok(StatusCode::OK) => {}
+        Ok(code) => {
+            eprintln!("Transfer.sh is not reachable, status code: {}", code.red());
+            exit(1);
+        }
+        Err(err) => {
+            eprintln!("Transfer.sh is not reachable: {}", err.red());
+            exit(1);
+        }
+    }
 }
 
 async fn run_app(args: AppArguments) -> Result<(), Box<dyn std::error::Error>> {

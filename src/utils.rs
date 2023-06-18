@@ -2,7 +2,7 @@ use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use dirs::config_dir;
 use owo_colors::OwoColorize;
 use prettytable::{row, Table};
-use reqwest::Response;
+use reqwest::{Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use sqlite::Row;
 use std::{
@@ -207,4 +207,14 @@ fn readable_date(unix_time: u64) -> Result<String, Box<dyn std::error::Error>> {
 
 pub async fn delete_entry_server(delete_link: &str) -> Result<Response, reqwest::Error> {
     reqwest::Client::new().delete(delete_link).send().await
+}
+
+pub async fn transfer_response_code() -> Result<StatusCode, reqwest::Error> {
+    let transfer_link = "https://transfer.sh/";
+
+    reqwest::Client::new()
+        .get(transfer_link)
+        .send()
+        .await
+        .map(|response| response.status())
 }
