@@ -211,8 +211,11 @@ pub async fn delete_entry_server(delete_link: &str) -> Result<Response, reqwest:
 
 pub async fn transfer_response_code() -> Result<StatusCode, reqwest::Error> {
     let transfer_link = "https://transfer.sh/";
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
 
-    reqwest::Client::new()
+    client
         .get(transfer_link)
         .send()
         .await
