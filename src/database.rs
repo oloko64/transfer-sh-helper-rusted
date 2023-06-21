@@ -1,4 +1,3 @@
-use sqlite::{open, Row};
 use std::{fs::remove_file, io, path::PathBuf};
 
 use crate::utils::{
@@ -7,7 +6,7 @@ use crate::utils::{
 };
 
 pub struct Database {
-    connection: sqlite::Connection,
+    connection: rusqlite::Connection,
     database_path: PathBuf,
 }
 
@@ -20,7 +19,7 @@ impl Database {
 
         let database_path = config_app_folder()?.join(database_file);
         Ok(Database {
-            connection: open(&database_path)?,
+            connection: rusqlite::Connection::open(&database_path)?,
             database_path,
         })
     }
@@ -36,19 +35,18 @@ impl Database {
             'unixTime'	INTEGER,
             PRIMARY KEY('id' AUTOINCREMENT));
             ",
+            (),
         )?;
         Ok(())
     }
 
     pub fn get_all_entries(&self) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
-        let cursor = self
-            .connection
-            .prepare("SELECT * FROM transfer_data")?
-            .into_iter();
+        let mut stmt = self.connection.prepare("SELECT * FROM transfer_data")?;
+        let mut rows = stmt.query([])?;
 
         let mut result: Vec<Link> = vec![];
-        for row in cursor.collect::<Result<Vec<Row>, _>>()? {
-            result.append(&mut vec![Link::new(&row)?]);
+        while let Some(row) = rows.next()? {
+            result.push(Link::new(row)?);
         }
         Ok(result)
     }
@@ -81,11 +79,10 @@ impl Database {
             (":link", link),
             (":deleteLink", delete_link),
             (":unixTime", current_time),
-        ][..];
+        ];
 
-        let mut statement = self.connection.prepare(query)?;
-        statement.bind(query_params)?;
-        statement.next()?;
+        let mut stmt = self.connection.prepare(query)?;
+        stmt.execute(query_params)?;
 
         Ok(())
     }
@@ -112,23 +109,30 @@ impl Database {
             return Ok(());
         }
 
-        let query = "DELETE FROM transfer_data WHERE id = :id";
-        let mut statement = self.connection.prepare(query)?;
-        statement.bind((":id", entry_id))?;
+        let deleted_server = delete_entry_server(&delete_link).await;
 
-        match delete_entry_server(&delete_link).await {
-            Ok(_) => {
-                statement.next()?;
+        // TODO: This should be handled using a transaction, if the request fails rollback the database
+        let execute_delete = || -> Result<(), Box<dyn std::error::Error>> {
+            let query = "DELETE FROM transfer_data WHERE id = ?";
+            let mut stmt = self.connection.prepare(query)?;
+            stmt.execute([&entry_id])?;
+
+            Ok(())
+        };
+
+        if deleted_server.is_ok() {
+            execute_delete()?;
+            println!("Entry with id {entry_id} deleted.\n");
+        } else {
+            eprintln!(
+                "Error while deleting entry from server: {}",
+                deleted_server.unwrap_err()
+            );
+            if ask_confirmation("Do you want to delete the entry from the database anyway? (It will still be accessible from the link)")? {
+                execute_delete()?;
                 println!("Entry with id {entry_id} deleted.\n");
             }
-            Err(err) => {
-                eprintln!("Error while deleting entry from server: {err}");
-                if ask_confirmation("Do you want to delete the entry from the database anyway? (It will still be accessible from the link)")? {
-                    statement.next()?;
-                    println!("Entry with id {entry_id} deleted.\n");
-                }
-            }
-        };
+        }
 
         Ok(())
     }
@@ -137,17 +141,15 @@ impl Database {
         &self,
         entry_id: i64,
     ) -> Result<Option<Link>, Box<dyn std::error::Error>> {
-        let cursor = self
+        let mut stmt = self
             .connection
-            .prepare("SELECT * FROM transfer_data WHERE id = ?")?
-            .into_iter()
-            .bind((1, entry_id))?;
+            .prepare("SELECT * FROM transfer_data WHERE id = ?")?;
 
-        if let Some(row) = (cursor.collect::<Result<Vec<Row>, _>>()?)
-            .into_iter()
-            .next()
-        {
-            return Ok(Some(Link::new(&row)?));
+        let params = &[&entry_id];
+        let mut rows = stmt.query(params)?;
+
+        if let Some(row) = (rows.next()?).into_iter().next() {
+            return Ok(Some(Link::new(row)?));
         }
         Ok(None)
     }
