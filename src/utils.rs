@@ -3,8 +3,8 @@ use dirs::config_dir;
 use owo_colors::OwoColorize;
 use prettytable::{row, Table};
 use reqwest::{Response, StatusCode};
+use rusqlite::Row;
 use serde::{Deserialize, Serialize};
-use sqlite::Row;
 use std::{
     fs::{create_dir_all, read_to_string, write},
     io::{self, Write},
@@ -53,12 +53,12 @@ pub struct Link {
 impl Link {
     pub fn new(row: &Row) -> Result<Link, Box<dyn std::error::Error>> {
         Ok(Link {
-            id: row.read::<i64, _>("id"),
-            name: row.read::<&str, _>("name").to_owned(),
-            link: row.read::<&str, _>("link").to_owned(),
-            delete_link: row.read::<&str, _>("deleteLink").to_owned(),
-            unix_time: row.read::<i64, _>("unixTime").try_into()?,
-            is_available: Link::is_link_available(row.read::<i64, _>("unixTime").try_into()?)?,
+            id: row.get(0)?,
+            name: row.get(1)?,
+            link: row.get(2)?,
+            delete_link: row.get(3)?,
+            unix_time: row.get(4)?,
+            is_available: Link::is_link_available(row.get(4)?)?,
         })
     }
 
