@@ -215,8 +215,7 @@ pub async fn delete_entry_server(
     let response = reqwest::Client::new().delete(delete_link).send().await?;
 
     match response.status() {
-        StatusCode::OK => Ok(response),
-        StatusCode::NOT_FOUND => Ok(response),
+        StatusCode::OK | StatusCode::NOT_FOUND => Ok(response),
         _ => Err(format!("Failed to delete entry. Status code: {}", response.status()).into()),
     }
 }
