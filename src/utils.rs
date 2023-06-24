@@ -168,6 +168,10 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn st
         .send()
         .await?;
 
+    if response.status() != StatusCode::OK {
+        return Err(format!("Failed to upload file. Status code: {}", response.status()).into());
+    }
+
     println!("\n");
 
     let delete_link = response
@@ -205,8 +209,15 @@ fn readable_date(unix_time: u64) -> Result<String, Box<dyn std::error::Error>> {
     Ok(date.format("%d-%m-%Y").to_string())
 }
 
-pub async fn delete_entry_server(delete_link: &str) -> Result<Response, reqwest::Error> {
-    reqwest::Client::new().delete(delete_link).send().await
+pub async fn delete_entry_server(
+    delete_link: &str,
+) -> Result<Response, Box<dyn std::error::Error>> {
+    let response = reqwest::Client::new().delete(delete_link).send().await?;
+
+    match response.status() {
+        StatusCode::OK | StatusCode::NOT_FOUND => Ok(response),
+        _ => Err(format!("Failed to delete entry. Status code: {}", response.status()).into()),
+    }
 }
 
 pub async fn transfer_response_code() -> Result<StatusCode, reqwest::Error> {
