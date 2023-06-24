@@ -96,7 +96,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn delete_entry(&self, entry_id: i64) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn delete_entry(&mut self, entry_id: i64) -> Result<(), Box<dyn std::error::Error>> {
         let delete_link = if let Some(link) = self.get_single_entry(entry_id)? {
             link.get_delete_link().to_string()
         } else {
@@ -109,28 +109,24 @@ impl Database {
             return Ok(());
         }
 
-        let deleted_server = delete_entry_server(&delete_link).await;
+        let query = "DELETE FROM transfer_data WHERE id = ?";
+        let transaction = self.connection.transaction()?;
+        transaction.prepare(query)?.execute([&entry_id])?;
 
-        // TODO: This should be handled using a transaction, if the request fails rollback the database
-        let execute_delete = || -> Result<(), Box<dyn std::error::Error>> {
-            let query = "DELETE FROM transfer_data WHERE id = ?";
-            let mut stmt = self.connection.prepare(query)?;
-            stmt.execute([&entry_id])?;
-
-            Ok(())
-        };
-
-        if deleted_server.is_ok() {
-            execute_delete()?;
-            println!("Entry with id {entry_id} deleted.\n");
-        } else {
-            eprintln!(
-                "Error while deleting entry from server: {}",
-                deleted_server.unwrap_err()
-            );
-            if ask_confirmation("Do you want to delete the entry from the database anyway? (It will still be accessible from the link)")? {
-                execute_delete()?;
+        match delete_entry_server(&delete_link).await {
+            Ok(_) => {
+                transaction.commit()?;
                 println!("Entry with id {entry_id} deleted.\n");
+            }
+            Err(err) => {
+                eprintln!("Error while deleting entry from server: {err}");
+                if ask_confirmation("Do you want to delete the entry from the database anyway? (It will still be accessible from the link)")? {
+                    transaction.commit()?;
+                    println!("Entry with id {entry_id} deleted.\n");
+                } else {
+                    transaction.rollback()?;
+                    println!("Entry with id {entry_id} not deleted.\n");
+                }
             }
         }
 

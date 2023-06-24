@@ -33,7 +33,7 @@ async fn execute_delete_by_id() -> Result<(), Box<dyn std::error::Error>> {
     io::stdout().flush()?;
     io::stdin().read_line(&mut id)?;
 
-    let database = DATABASE.try_lock()?;
+    let mut database = DATABASE.try_lock()?;
     database.delete_entry(id.trim().parse::<i64>()?).await?;
 
     Ok(())
