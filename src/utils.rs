@@ -1,7 +1,6 @@
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use dirs::config_dir;
 use owo_colors::OwoColorize;
-use prettytable::{row, Table};
 use reqwest::{Response, StatusCode};
 use rusqlite::Row;
 use serde::{Deserialize, Serialize};
@@ -195,9 +194,10 @@ pub fn output_data(list_del: bool) -> Result<usize, Box<dyn std::error::Error>> 
         println!("Run `transferhelper -h` to see all available commands.\n");
         exit(0);
     }
-    transfer_table!(&data, list_del);
+    let data_len = data.len();
+    transfer_table!(data, list_del);
 
-    Ok(data.len())
+    Ok(data_len)
 }
 
 fn readable_date(unix_time: u64) -> Result<String, Box<dyn std::error::Error>> {
