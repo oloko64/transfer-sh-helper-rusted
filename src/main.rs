@@ -1,5 +1,6 @@
 mod arg_parser;
 mod database;
+mod errors;
 mod macros;
 mod utils;
 use std::{
@@ -12,6 +13,7 @@ use arg_parser::{AppArguments, AppOptions};
 use clap::Parser;
 use comprexor::{CompressionLevel, Compressor};
 use database::Database;
+use errors::TransferError;
 use once_cell::sync::Lazy;
 use owo_colors::OwoColorize;
 use reqwest::StatusCode;
@@ -20,10 +22,10 @@ use utils::transfer_response_code;
 
 static DATABASE: Lazy<Mutex<Database>> = Lazy::new(|| Mutex::new(Database::new().unwrap()));
 
-async fn execute_delete_by_id() -> Result<(), Box<dyn std::error::Error>> {
+async fn execute_delete_by_id() -> Result<(), TransferError> {
     verify_transfer_connection().await;
     println!();
-    if utils::output_data(false)? == 0 {
+    if utils::output_data(false, false)? == 0 {
         println!("No data to delete");
         exit(0);
     }
@@ -39,22 +41,22 @@ async fn execute_delete_by_id() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn execute_list(delete_links: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn execute_list(delete_links: bool, show_sha256: bool) -> Result<(), TransferError> {
     println!();
-    utils::output_data(delete_links)?;
+    utils::output_data(delete_links, show_sha256)?;
     println!();
 
     Ok(())
 }
 
-fn execute_drop() -> Result<(), Box<dyn std::error::Error>> {
+fn execute_drop() -> Result<(), TransferError> {
     let database = DATABASE.try_lock()?;
     database.delete_database_file()?;
 
     Ok(())
 }
 
-async fn execute_transfer_file<T>(path: T) -> Result<(), Box<dyn std::error::Error>>
+async fn execute_transfer_file<T>(path: T) -> Result<(), TransferError>
 where
     T: AsRef<str>,
 {
@@ -95,7 +97,7 @@ where
             .await?;
     }
 
-    utils::output_data(false)?;
+    utils::output_data(false, true)?;
     println!();
 
     Ok(())
@@ -104,7 +106,7 @@ where
 async fn execute_transfer_compressed<T>(
     path: T,
     compression_level: &CompressionLevel,
-) -> Result<(), Box<dyn std::error::Error>>
+) -> Result<(), TransferError>
 where
     T: AsRef<str>,
 {
@@ -165,7 +167,7 @@ where
             .await?;
     }
 
-    utils::output_data(false)?;
+    utils::output_data(false, true)?;
     println!();
 
     Ok(())
@@ -185,18 +187,21 @@ async fn verify_transfer_connection() {
     }
 }
 
-async fn run_app(args: AppArguments) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_app(args: AppArguments) -> Result<(), TransferError> {
     {
         let database = DATABASE.try_lock()?;
         database.create_table()?;
     }
     let Some(subcommands) = args.app_subcommands else {
-        execute_list(false)?;
+        execute_list(false, false)?;
         exit(0);
     };
 
     match subcommands {
-        AppOptions::List { delete_link } => execute_list(delete_link)?,
+        AppOptions::List {
+            delete_link,
+            sha256,
+        } => execute_list(delete_link, sha256)?,
         AppOptions::Delete => execute_delete_by_id().await?,
         AppOptions::Drop => execute_drop()?,
         AppOptions::Upload {
@@ -216,7 +221,7 @@ async fn run_app(args: AppArguments) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), TransferError> {
     let args = arg_parser::AppArguments::parse();
 
     run_app(args).await?;

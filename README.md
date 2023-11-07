@@ -58,6 +58,12 @@ transferhelper upload <file_or_folder> -c -l 9
 transferhelper list
 ```
 
+### View sha256sum of uploaded files:
+
+```bash
+transferhelper list -s
+```
+
 ### View your stored delete links:
 
 ```bash
