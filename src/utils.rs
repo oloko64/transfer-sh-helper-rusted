@@ -1,20 +1,26 @@
-use chrono::prelude::{DateTime, NaiveDateTime, Utc};
+use chrono::{
+    prelude::{NaiveDateTime, Utc},
+    TimeZone,
+};
 use dirs::config_dir;
 use owo_colors::OwoColorize;
 use reqwest::{Response, StatusCode};
 use rusqlite::Row;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     fs::{create_dir_all, read_to_string, write},
     io::{self, Write},
     path::PathBuf,
     process::exit,
+    sync::Arc,
     time::{SystemTime, SystemTimeError, UNIX_EPOCH},
 };
+use tokio::io::{AsyncReadExt, BufReader};
 use tokio_stream::StreamExt;
 use tokio_util::io::ReaderStream;
 
-use crate::{transfer_table, DATABASE};
+use crate::{errors::TransferError, transfer_table, DATABASE};
 const UNIX_WEEK: u64 = 1_209_600;
 
 pub struct TransferResponse {
@@ -47,10 +53,11 @@ pub struct Link {
     delete_link: String,
     unix_time: u64,
     is_available: bool,
+    sha256sum: Option<String>,
 }
 
 impl Link {
-    pub fn new(row: &Row) -> Result<Link, Box<dyn std::error::Error>> {
+    pub fn new(row: &Row) -> Result<Link, TransferError> {
         Ok(Link {
             id: row.get(0)?,
             name: row.get(1)?,
@@ -58,6 +65,7 @@ impl Link {
             delete_link: row.get(3)?,
             unix_time: row.get(4)?,
             is_available: Link::is_link_available(row.get(4)?)?,
+            sha256sum: row.get(5)?,
         })
     }
 
@@ -70,7 +78,7 @@ impl Link {
     }
 }
 
-pub async fn get_file_size(path: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn get_file_size(path: &str) -> Result<String, TransferError> {
     if !tokio::fs::metadata(path).await?.is_file() {
         return Err(
             "Path is not a file. You can use the compress mode `-c <path>` to upload a folder"
@@ -79,6 +87,10 @@ pub async fn get_file_size(path: &str) -> Result<String, Box<dyn std::error::Err
     }
 
     let size = tokio::fs::metadata(path).await?.len();
+    // This code checks if the integer is within the range [0, 2^53], which is the range of integers that can be accurately represented as a f64 in Rust.
+    if size > (2f64.powi(53) as u64) {
+        return Err("File size is too large".into());
+    }
     let float_size = size as f64;
     let kb = f64::from(1024);
     let mb = f64::from(1024 * 1024);
@@ -94,7 +106,7 @@ pub async fn get_file_size(path: &str) -> Result<String, Box<dyn std::error::Err
     }
 }
 
-pub fn get_config() -> Result<Config, Box<dyn std::error::Error>> {
+pub fn get_config() -> Result<Config, TransferError> {
     let config_path = config_app_folder()?.join("transfer-helper-config.json");
     let default_config = Config::new();
 
@@ -137,8 +149,20 @@ pub fn ask_confirmation(text: &str) -> Result<bool, io::Error> {
     Ok(confirmation.trim().to_lowercase().starts_with('y'))
 }
 
-pub async fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn std::error::Error>> {
-    let file = tokio::fs::File::open(&file_path).await?;
+pub async fn calculate_sha25sum(file_path: Arc<String>) -> Result<String, TransferError> {
+    let file = tokio::fs::File::open(file_path.as_ref()).await?;
+    let mut hasher = Sha256::new();
+    let mut reader = BufReader::new(file);
+    let mut buffer = Vec::new();
+    reader.read_to_end(&mut buffer).await?;
+    hasher.update(buffer);
+    let sha256sum = format!("{:x}", hasher.finalize());
+
+    Ok(sha256sum)
+}
+
+pub async fn upload_file(file_path: Arc<String>) -> Result<TransferResponse, TransferError> {
+    let file = tokio::fs::File::open(file_path.as_ref()).await?;
     let total_size = file.metadata().await?.len();
     let mut reader_stream = ReaderStream::new(file);
     let mut total_uploaded = 0_f64;
@@ -159,6 +183,7 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn st
         .put(&format!(
             "https://transfer.sh/{}",
             file_path
+                .as_ref()
                 .split('/')
                 .last()
                 .ok_or("Failed to get file name from upload URL.")?
@@ -186,7 +211,7 @@ pub async fn upload_file(file_path: &str) -> Result<TransferResponse, Box<dyn st
     })
 }
 
-pub fn output_data(list_del: bool) -> Result<usize, Box<dyn std::error::Error>> {
+pub fn output_data(list_del: bool, show_sha256: bool) -> Result<usize, TransferError> {
     let data = DATABASE.try_lock()?.get_all_entries()?;
 
     if data.is_empty() {
@@ -195,23 +220,21 @@ pub fn output_data(list_del: bool) -> Result<usize, Box<dyn std::error::Error>> 
         exit(0);
     }
     let data_len = data.len();
-    transfer_table!(data, list_del);
+    transfer_table!(data, list_del, show_sha256);
 
     Ok(data_len)
 }
 
-fn readable_date(unix_time: u64) -> Result<String, Box<dyn std::error::Error>> {
-    let date = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp_opt((unix_time + UNIX_WEEK).try_into()?, 0)
+fn readable_date(unix_time: u64) -> Result<String, TransferError> {
+    let date = TimeZone::from_utc_datetime(
+        &Utc,
+        &NaiveDateTime::from_timestamp_opt((unix_time + UNIX_WEEK).try_into()?, 0)
             .ok_or("Invalid date")?,
-        Utc,
     );
     Ok(date.format("%d-%m-%Y").to_string())
 }
 
-pub async fn delete_entry_server(
-    delete_link: &str,
-) -> Result<Response, Box<dyn std::error::Error>> {
+pub async fn delete_entry_server(delete_link: &str) -> Result<Response, TransferError> {
     let response = reqwest::Client::new().delete(delete_link).send().await?;
 
     match response.status() {

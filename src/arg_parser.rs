@@ -14,8 +14,12 @@ pub enum AppOptions {
     /// List all uploaded files
     List {
         /// Show delete links
-        #[arg(short, long)]
+        #[arg(short, long, group = "list_flag")]
         delete_link: bool,
+
+        /// Show sha256sum
+        #[arg(short, long, group = "list_flag")]
+        sha256: bool,
     },
 
     /// Delete a file by id, deleting the file from Transfer.sh servers and the local database

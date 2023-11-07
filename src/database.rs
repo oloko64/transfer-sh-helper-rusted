@@ -1,8 +1,12 @@
-use std::{fs::remove_file, io, path::PathBuf};
+use std::{fs::remove_file, path::PathBuf, sync::Arc};
+use tokio::try_join;
 
-use crate::utils::{
-    ask_confirmation, config_app_folder, create_config_app_folder, current_time,
-    delete_entry_server, get_config, upload_file, Link,
+use crate::{
+    errors::TransferError,
+    utils::{
+        ask_confirmation, calculate_sha25sum, config_app_folder, create_config_app_folder,
+        current_time, delete_entry_server, get_config, upload_file, Link,
+    },
 };
 
 pub struct Database {
@@ -11,7 +15,7 @@ pub struct Database {
 }
 
 impl Database {
-    pub fn new() -> Result<Database, Box<dyn std::error::Error>> {
+    pub fn new() -> Result<Database, TransferError> {
         create_config_app_folder()?;
 
         let binding = get_config()?;
@@ -24,7 +28,7 @@ impl Database {
         })
     }
 
-    pub fn create_table(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn create_table(&self) -> Result<(), TransferError> {
         self.connection.execute(
             "
             CREATE TABLE IF NOT EXISTS transfer_data (
@@ -37,10 +41,26 @@ impl Database {
             ",
             (),
         )?;
+
+        let count = self.connection.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('transfer_data') WHERE name = 'sha256sum'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )?;
+
+        if count == 0 {
+            self.connection.execute(
+                "
+                    ALTER TABLE transfer_data ADD COLUMN 'sha256sum' TEXT;
+                    ",
+                (),
+            )?;
+        }
+
         Ok(())
     }
 
-    pub fn get_all_entries(&self) -> Result<Vec<Link>, Box<dyn std::error::Error>> {
+    pub fn get_all_entries(&self) -> Result<Vec<Link>, TransferError> {
         let mut stmt = self.connection.prepare("SELECT * FROM transfer_data")?;
         let mut rows = stmt.query([])?;
 
@@ -55,12 +75,19 @@ impl Database {
         &self,
         entry_name: &str,
         file_path: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let transfer_response = upload_file(file_path).await?;
+    ) -> Result<(), TransferError> {
+        let arc_file_path = Arc::new(file_path.to_string());
+        let upload_handle = tokio::spawn(upload_file(Arc::clone(&arc_file_path)));
+        let sha256sum_handle = tokio::spawn(calculate_sha25sum(Arc::clone(&arc_file_path)));
+        let (transfer_response, file_hash) =
+            try_join!(upload_handle, sha256sum_handle).map_err(|err| err.to_string())?;
+        let transfer_response = transfer_response?;
+        let file_hash = file_hash?;
         self.insert_entry(
             entry_name,
             &transfer_response.transfer_link,
             &transfer_response.delete_link,
+            &file_hash,
         )?;
 
         Ok(())
@@ -71,14 +98,16 @@ impl Database {
         name: &str,
         link: &str,
         delete_link: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+        sha256sum: &str,
+    ) -> Result<(), TransferError> {
         let current_time = &current_time()?.to_string();
-        let query = "INSERT INTO transfer_data (name, link, deleteLink, unixTime) VALUES (:name, :link, :deleteLink, :unixTime)";
+        let query = "INSERT INTO transfer_data (name, link, deleteLink, unixTime, sha256sum) VALUES (:name, :link, :deleteLink, :unixTime, :sha256sum)";
         let query_params = &[
             (":name", name),
             (":link", link),
             (":deleteLink", delete_link),
             (":unixTime", current_time),
+            (":sha256sum", sha256sum),
         ];
 
         let mut stmt = self.connection.prepare(query)?;
@@ -87,7 +116,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn delete_database_file(&self) -> Result<(), io::Error> {
+    pub fn delete_database_file(&self) -> Result<(), TransferError> {
         if !ask_confirmation("Are you sure you want to delete the database file?")? {
             return Ok(());
         }
@@ -96,7 +125,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn delete_entry(&mut self, entry_id: i64) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn delete_entry(&mut self, entry_id: i64) -> Result<(), TransferError> {
         let delete_link = if let Some(link) = self.get_single_entry(entry_id)? {
             link.get_delete_link().to_string()
         } else {
@@ -133,10 +162,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_single_entry(
-        &self,
-        entry_id: i64,
-    ) -> Result<Option<Link>, Box<dyn std::error::Error>> {
+    pub fn get_single_entry(&self, entry_id: i64) -> Result<Option<Link>, TransferError> {
         let mut stmt = self
             .connection
             .prepare("SELECT * FROM transfer_data WHERE id = ?")?;
