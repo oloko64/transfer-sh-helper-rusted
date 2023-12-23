@@ -4,6 +4,7 @@ use std::{
 };
 
 use reqwest::header::ToStrError;
+use tokio::task::JoinError;
 
 #[derive(Debug)]
 pub enum TransferError {
@@ -68,6 +69,12 @@ impl From<&str> for TransferError {
 
 impl From<SystemTimeError> for TransferError {
     fn from(err: SystemTimeError) -> Self {
+        TransferError::Generic(err.to_string())
+    }
+}
+
+impl From<JoinError> for TransferError {
+    fn from(err: JoinError) -> Self {
         TransferError::Generic(err.to_string())
     }
 }

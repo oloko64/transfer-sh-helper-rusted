@@ -10,13 +10,12 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     fs::{create_dir_all, read_to_string, write},
-    io::{self, Write},
+    io::{self, Read, Write},
     path::PathBuf,
     process::exit,
     sync::Arc,
     time::{SystemTime, SystemTimeError, UNIX_EPOCH},
 };
-use tokio::io::{AsyncReadExt, BufReader};
 use tokio_stream::StreamExt;
 use tokio_util::io::ReaderStream;
 
@@ -150,13 +149,22 @@ pub fn ask_confirmation(text: &str) -> Result<bool, io::Error> {
 }
 
 pub async fn calculate_sha25sum(file_path: Arc<String>) -> Result<String, TransferError> {
-    let file = tokio::fs::File::open(file_path.as_ref()).await?;
-    let mut hasher = Sha256::new();
-    let mut reader = BufReader::new(file);
-    let mut buffer = Vec::new();
-    reader.read_to_end(&mut buffer).await?;
-    hasher.update(buffer);
-    let sha256sum = format!("{:x}", hasher.finalize());
+    let task = tokio::task::spawn_blocking(move || {
+        let file = std::fs::File::open(file_path.as_ref())?;
+        let mut reader = std::io::BufReader::new(file);
+        // 10MB buffer
+        let mut buffer = [0; 10_485_760];
+        let mut hasher = Sha256::new();
+
+        while reader.read(&mut buffer)? > 0 {
+            hasher.update(&buffer);
+        }
+        let sha256sum = format!("{:x}", hasher.finalize());
+
+        Ok::<String, TransferError>(sha256sum)
+    });
+
+    let sha256sum = task.await??;
 
     Ok(sha256sum)
 }
