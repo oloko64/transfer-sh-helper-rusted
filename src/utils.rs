@@ -152,11 +152,15 @@ pub async fn calculate_sha25sum(file_path: Arc<String>) -> Result<String, Transf
     let task = tokio::task::spawn_blocking(move || {
         let file = std::fs::File::open(file_path.as_ref())?;
         let mut reader = std::io::BufReader::new(file);
-        // 10MB buffer
-        let mut buffer = [0; 10_485_760];
+        // 10MB heap buffer
+        let mut buffer = vec![0; 10_485_760];
         let mut hasher = Sha256::new();
 
-        while reader.read(&mut buffer)? > 0 {
+        loop {
+            let n = reader.read(&mut buffer[..])?;
+            if n == 0 {
+                break;
+            }
             hasher.update(&buffer);
         }
         let sha256sum = format!("{:x}", hasher.finalize());
